@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Kansas City Hardscapes — Job Costing</title>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,800&family=JetBrains+Mono:wght@400;600&family=Inter:wght@400;500;600&family=Poppins:wght@400;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root {
   --paper: #f4f6fa;
@@ -157,6 +158,7 @@ footer { text-align: center; padding: 32px; color: var(--ink-soft); font-size: 0
       <div class="rate-display">
         <div class="label-sm">Method</div>
         <div class="v" id="ohRate" style="font-size: 1rem;">Actual Monthly Allocation</div>
+        <div id="syncStatus" style="font-size: 0.7rem; margin-top: 4px; color: var(--ink-soft); letter-spacing: 0.05em;">Local only</div>
       </div>
     </div>
     <nav class="tabs">
@@ -231,6 +233,30 @@ footer { text-align: center; padding: 32px; color: var(--ink-soft); font-size: 0
 <div class="toast" id="toast"></div>
 
 <script>
+// ===== SUPABASE CONFIG =====
+// Paste your Supabase project URL and anon key here.
+// Get them from: Supabase Dashboard → Settings → API
+const SUPABASE_URL = "https://wzsypmwllszlaotcuynu.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind6c3lwbXdsbHN6bGFvdGN1eW51Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2MTk3MjcsImV4cCI6MjA5MTE5NTcyN30.jfBoRBtGY7F1PEa1DInFR2ZCy7jUqSMBav5zEFc61Vc";
+
+// Will be initialized once the page loads
+let sb = null;
+let syncEnabled = false;
+function initSupabase() {
+  if (SUPABASE_URL.startsWith("PASTE_") || SUPABASE_KEY.startsWith("PASTE_")) {
+    console.warn("Supabase not configured - falling back to local storage only");
+    return false;
+  }
+  try {
+    sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    syncEnabled = true;
+    return true;
+  } catch (e) {
+    console.error("Supabase init failed:", e);
+    return false;
+  }
+}
+
 // ===== STATE & STORAGE =====
 const STORAGE_JOBS = "ledger_margin_jobs";
 const STORAGE_OH = "ledger_margin_overhead";
@@ -366,6 +392,177 @@ function saveState() {
     localStorage.setItem(STORAGE_FEATURES, JSON.stringify(state.customFeatures));
   } catch(e) {
     showToast("Could not save - browser storage full or blocked");
+  }
+  // Push to Supabase in background
+  if (syncEnabled) syncToSupabase();
+}
+
+// ===== SUPABASE SYNC =====
+// Convert a job from JS camelCase to DB snake_case
+function jobToRow(j) {
+  return {
+    id: j.id,
+    customer: j.customer || "",
+    features: j.features || [],
+    start_date: j.startDate || null,
+    end_date: j.endDate || null,
+    project_price: +j.projectPrice || 0,
+    job_materials: +j.jobMaterials || 0,
+    subcontractors: +j.subcontractors || 0,
+    equipment: +j.equipment || 0,
+    dumpster: +j.dumpster || 0,
+    permits: +j.permits || 0,
+    month1_index: j.month1Index != null ? j.month1Index : 0,
+    month1_labor_costs: +j.month1LaborCosts || 0,
+    month1_labor_hours: +j.month1LaborHours || 0,
+    month2_index: j.month2Index != null ? j.month2Index : -1,
+    month2_labor_costs: +j.month2LaborCosts || 0,
+    month2_labor_hours: +j.month2LaborHours || 0,
+    subs_surcharge_pct: +j.subsSurchargePct || 0.15,
+    notes: j.notes || "",
+    updated_at: new Date().toISOString(),
+  };
+}
+
+// Convert from DB snake_case to JS camelCase
+function rowToJob(r) {
+  return {
+    id: r.id,
+    customer: r.customer || "",
+    jobName: "", // legacy
+    features: r.features || [],
+    date: r.start_date || "",
+    startDate: r.start_date || "",
+    endDate: r.end_date || "",
+    projectPrice: +r.project_price || 0,
+    jobMaterials: +r.job_materials || 0,
+    subcontractors: +r.subcontractors || 0,
+    equipment: +r.equipment || 0,
+    dumpster: +r.dumpster || 0,
+    permits: +r.permits || 0,
+    laborCosts: 0,
+    laborHours: 0,
+    month1Index: r.month1_index != null ? r.month1_index : 0,
+    month1LaborCosts: +r.month1_labor_costs || 0,
+    month1LaborHours: +r.month1_labor_hours || 0,
+    month2Index: r.month2_index != null ? r.month2_index : -1,
+    month2LaborCosts: +r.month2_labor_costs || 0,
+    month2LaborHours: +r.month2_labor_hours || 0,
+    subsSurchargePct: +r.subs_surcharge_pct || 0.15,
+    notes: r.notes || "",
+  };
+}
+
+// Debounced sync — wait 600ms after last change before pushing to avoid hammering the API
+let syncTimer = null;
+let syncing = false;
+function syncToSupabase() {
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(async () => {
+    if (!sb || syncing) return;
+    syncing = true;
+    setSyncStatus("syncing");
+    try {
+      // Upsert all jobs
+      const rows = state.jobs.map(jobToRow);
+      if (rows.length > 0) {
+        const { error: jErr } = await sb.from("jobs").upsert(rows, { onConflict: "id" });
+        if (jErr) throw jErr;
+      }
+
+      // Upsert overhead (single row, id=1)
+      const { error: oErr } = await sb.from("overhead").upsert({
+        id: 1,
+        months: state.overhead.months,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "id" });
+      if (oErr) throw oErr;
+
+      // Upsert custom features
+      const { error: fErr } = await sb.from("custom_features").upsert({
+        id: 1,
+        features: state.customFeatures,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "id" });
+      if (fErr) throw fErr;
+
+      setSyncStatus("synced");
+    } catch (e) {
+      console.error("Sync error:", e);
+      setSyncStatus("error");
+    } finally {
+      syncing = false;
+    }
+  }, 600);
+}
+
+// Delete a job from Supabase (called separately from saveState since saveState upserts everything still in state)
+async function deleteJobFromSupabase(jobId) {
+  if (!sb) return;
+  setSyncStatus("syncing");
+  try {
+    const { error } = await sb.from("jobs").delete().eq("id", jobId);
+    if (error) throw error;
+    setSyncStatus("synced");
+  } catch (e) {
+    console.error("Delete sync error:", e);
+    setSyncStatus("error");
+  }
+}
+
+// Pull all data from Supabase and overwrite local state
+async function loadFromSupabase() {
+  if (!sb) return false;
+  setSyncStatus("syncing");
+  try {
+    const { data: jobsData, error: jErr } = await sb.from("jobs").select("*").order("updated_at", { ascending: false });
+    if (jErr) throw jErr;
+    if (jobsData) state.jobs = jobsData.map(rowToJob);
+
+    const { data: ohData, error: oErr } = await sb.from("overhead").select("*").eq("id", 1).maybeSingle();
+    if (oErr) throw oErr;
+    if (ohData && ohData.months && Array.isArray(ohData.months) && ohData.months.length > 0) {
+      state.overhead.months = ohData.months;
+    }
+
+    const { data: cfData, error: fErr } = await sb.from("custom_features").select("*").eq("id", 1).maybeSingle();
+    if (fErr) throw fErr;
+    if (cfData && Array.isArray(cfData.features)) {
+      state.customFeatures = cfData.features;
+    }
+
+    // Persist to local cache
+    try {
+      localStorage.setItem(STORAGE_JOBS, JSON.stringify(state.jobs));
+      localStorage.setItem(STORAGE_OH, JSON.stringify(state.overhead));
+      localStorage.setItem(STORAGE_FEATURES, JSON.stringify(state.customFeatures));
+    } catch(e) {}
+
+    setSyncStatus("synced");
+    return true;
+  } catch (e) {
+    console.error("Load from Supabase failed:", e);
+    setSyncStatus("error");
+    return false;
+  }
+}
+
+// Update sync indicator in header
+function setSyncStatus(status) {
+  const el = document.getElementById("syncStatus");
+  if (!el) return;
+  if (status === "syncing") {
+    el.textContent = "Syncing...";
+    el.style.color = "var(--ink-soft)";
+  } else if (status === "synced") {
+    el.textContent = "Synced";
+    el.style.color = "var(--forest)";
+  } else if (status === "error") {
+    el.textContent = "Sync error";
+    el.style.color = "var(--danger)";
+  } else if (status === "offline") {
+    el.textContent = "Local only";
+    el.style.color = "var(--ink-soft)";
   }
 }
 
@@ -682,9 +879,11 @@ function renderDetail(rate) {
 
   document.getElementById("btnDelete").addEventListener("click", () => {
     if (confirm("Delete this job?")) {
-      state.jobs = state.jobs.filter(j => j.id !== job.id);
+      const deletedId = job.id;
+      state.jobs = state.jobs.filter(j => j.id !== deletedId);
       state.selectedJobId = null;
       saveState();
+      if (syncEnabled) deleteJobFromSupabase(deletedId);
       state.tab = "dashboard";
       render();
     }
@@ -1423,8 +1622,17 @@ document.getElementById("btnExportCSV").addEventListener("click", exportCSV);
 document.getElementById("btnPublish").addEventListener("click", printPDF);
 
 // ===== INIT =====
-loadState();
+loadState(); // load local cache first for instant render
 render();
+
+// Then init Supabase and pull authoritative data (may overwrite local)
+if (initSupabase()) {
+  loadFromSupabase().then(success => {
+    if (success) render();
+  });
+} else {
+  setSyncStatus("offline");
+}
 </script>
 </body>
 </html>
