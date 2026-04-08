@@ -1,0 +1,1430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Kansas City Hardscapes — Job Costing</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,800&family=JetBrains+Mono:wght@400;600&family=Inter:wght@400;500;600&family=Poppins:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --paper: #f4f6fa;
+  --paper-dark: #e6ebf3;
+  --ink: #0b1a33;
+  --ink-soft: #4a5878;
+  --rust: #1e3a6f;
+  --forest: #2d6a4f;
+  --mustard: #c8a04a;
+  --line: #c8d1e0;
+  --danger: #a83232;
+}
+* { box-sizing: border-box; font-family: 'Poppins', sans-serif !important; }
+body { margin: 0; background: var(--paper); font-family: 'Poppins', sans-serif; color: var(--ink); min-height: 100vh; }
+.serif { font-family: 'Poppins', sans-serif; }
+.mono { font-family: 'Poppins', sans-serif; font-variant-numeric: tabular-nums; }
+.hidden { display: none !important; }
+
+header { border-bottom: 1px solid var(--line); background: white; }
+.header-inner { max-width: 1280px; margin: 0 auto; padding: 24px 32px; }
+.header-top { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; }
+h1.title { font-family: 'Fraunces', serif; font-size: 2.2rem; font-weight: 800; margin: 4px 0 0; line-height: 1; letter-spacing: -0.02em; }
+h1.title em { color: var(--rust); font-style: italic; }
+.label-sm { font-size: 0.7rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-soft); font-weight: 500; }
+.rate-display { text-align: right; }
+.rate-display .v { font-family: 'JetBrains Mono', monospace; font-size: 1.3rem; font-weight: 600; color: var(--rust); }
+.rate-display .v small { font-size: 0.8rem; color: var(--ink-soft); font-weight: 400; }
+
+nav.tabs { display: flex; gap: 0; margin-top: 24px; border-bottom: 1px solid var(--line); margin-bottom: -1px; }
+.tab-btn { padding: 10px 18px; border: none; background: transparent; cursor: pointer; font-family: 'Fraunces', serif; font-size: 1rem; color: var(--ink-soft); border-bottom: 2px solid transparent; display: flex; align-items: center; gap: 8px; transition: all 0.2s; }
+.tab-btn:hover { color: var(--ink); }
+.tab-btn.active { color: var(--rust); border-bottom-color: var(--rust); }
+
+main { max-width: 1280px; margin: 0 auto; padding: 32px; }
+
+.grid { display: grid; gap: 16px; }
+.grid-4 { grid-template-columns: repeat(4, 1fr); }
+.grid-3 { grid-template-columns: repeat(3, 1fr); }
+.grid-2 { grid-template-columns: repeat(2, 1fr); }
+.detail-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 24px; }
+@media (max-width: 900px) {
+  .grid-4 { grid-template-columns: repeat(2, 1fr); }
+  .grid-3 { grid-template-columns: 1fr; }
+  .detail-grid { grid-template-columns: 1fr; }
+  .job-grid { grid-template-columns: 1fr 1fr !important; }
+  .job-header { display: none !important; }
+}
+
+.card { background: white; border: 1px solid var(--line); padding: 24px; position: relative; margin-bottom: 24px; }
+.card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--rust); }
+.stat-card { background: white; border: 1px solid var(--line); padding: 20px; }
+.stat-card .big { font-family: 'JetBrains Mono', monospace; font-size: 1.5rem; font-weight: 600; margin-top: 8px; }
+.green { color: var(--forest); }
+.red { color: var(--danger); }
+
+h2.section-h { font-family: 'Fraunces', serif; font-size: 1.4rem; font-weight: 600; margin: 0 0 16px; }
+h2.page-h { font-family: 'Fraunces', serif; font-size: 1.5rem; font-weight: 600; margin: 0; }
+
+input, textarea, select {
+  background: transparent; border: none; border-bottom: 1px solid var(--line);
+  font-family: 'Inter', sans-serif; font-size: 0.95rem; padding: 6px 2px; width: 100%; color: var(--ink);
+}
+input.num { font-family: 'Poppins', sans-serif; text-align: left; }
+input:focus, textarea:focus { outline: none; border-bottom-color: var(--rust); }
+input[type="checkbox"] { width: auto; }
+.field { margin-bottom: 4px; }
+.field .label-sm { display: block; margin-bottom: 4px; }
+.field-row { display: flex; align-items: baseline; gap: 4px; }
+.field-row .prefix, .field-row .suffix { font-family: 'JetBrains Mono', monospace; color: var(--ink-soft); font-size: 0.85rem; }
+
+.btn { border: none; padding: 10px 18px; font-family: 'Inter', sans-serif; font-weight: 500; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; transition: all 0.15s; font-size: 0.9rem; }
+.btn-primary { background: var(--ink); color: var(--paper); }
+.btn-primary:hover { background: var(--rust); }
+.btn-ghost { background: transparent; color: var(--ink-soft); border: 1px solid var(--line); }
+.btn-ghost:hover { border-color: var(--ink); color: var(--ink); }
+.btn-ghost.rust { border-color: var(--rust); color: var(--rust); }
+.btn-ghost.rust:hover { background: var(--rust); color: white; }
+
+.toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; gap: 12px; }
+.toolbar-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.jobs-table { background: white; border: 1px solid var(--line); }
+.job-grid { display: grid; grid-template-columns: 1fr 0.95fr 0.95fr 0.95fr 0.95fr 0.95fr 0.95fr 0.3fr; gap: 8px; padding: 12px 14px; border-bottom: 1px solid var(--line); align-items: center; cursor: pointer; transition: background 0.12s; }
+.cell-stacked { text-align: right; font-family: 'Poppins', sans-serif; font-variant-numeric: tabular-nums; font-size: 0.85rem; }
+.cell-stacked .pct { display: block; font-size: 0.7rem; color: var(--ink-soft); margin-top: 1px; font-weight: 400; }
+.cell-stacked.bold { font-weight: 600; }
+.feature-chip {
+  display: inline-block;
+  padding: 7px 14px;
+  margin: 0 6px 6px 0;
+  border: 1.5px solid var(--line);
+  background: white;
+  color: var(--ink-soft);
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: 999px;
+  transition: all 0.12s;
+  font-family: 'Poppins', sans-serif;
+}
+.feature-chip:hover { border-color: var(--rust); color: var(--ink); }
+.feature-chip.active {
+  background: var(--rust);
+  border-color: var(--rust);
+  color: white;
+}
+.feature-chip.active:hover { background: var(--ink); border-color: var(--ink); }
+.job-grid:hover { background: var(--paper-dark); }
+.job-header { cursor: default; border-bottom: 2px solid var(--ink); }
+.job-header:hover { background: transparent; }
+.customer { font-weight: 600; color: var(--ink); }
+.jobname { font-size: 0.85rem; color: var(--ink-soft); margin-top: 2px; }
+.tr { text-align: right; }
+
+.empty-state { padding: 60px 20px; text-align: center; color: var(--ink-soft); }
+.empty-state .icon { font-size: 2rem; opacity: 0.4; margin-bottom: 8px; }
+
+.line { display: flex; justify-content: space-between; padding: 6px 0; font-size: 0.92rem; align-items: baseline; }
+.line .k { color: var(--ink-soft); }
+.line .v { font-family: 'JetBrains Mono', monospace; }
+.total-line { border-top: 1px dashed var(--line); padding-top: 10px; margin-top: 6px; }
+
+.net-box { padding: 18px; margin-top: 16px; color: white; }
+.net-box .lbl { font-size: 0.7rem; letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.85; }
+.net-box .big { font-family: 'JetBrains Mono', monospace; font-size: 1.9rem; font-weight: 600; margin-top: 4px; }
+.net-box .small { font-family: 'JetBrains Mono', monospace; font-size: 0.95rem; opacity: 0.9; }
+
+.summary-card { position: sticky; top: 20px; }
+.oh-note { margin-top: 16px; padding: 12px; background: var(--paper); border-left: 3px solid var(--mustard); font-size: 0.82rem; color: var(--ink-soft); }
+.oh-note .mono { color: var(--ink); }
+
+.month-row { display: grid; grid-template-columns: 2fr 2fr 2fr; gap: 16px; padding: 10px 0; border-bottom: 1px solid var(--line); align-items: center; }
+.month-row.header { border-bottom: 2px solid var(--ink); padding-bottom: 8px; }
+
+footer { text-align: center; padding: 32px; color: var(--ink-soft); font-size: 0.8rem; font-family: 'Fraunces', serif; font-style: italic; }
+
+.toast { position: fixed; bottom: 24px; right: 24px; background: var(--ink); color: var(--paper); padding: 14px 20px; font-size: 0.9rem; z-index: 1000; opacity: 0; transform: translateY(20px); transition: all 0.3s; }
+.toast.show { opacity: 1; transform: translateY(0); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <div class="header-top">
+      <div>
+        <h1 class="title" style="font-family: 'Poppins', sans-serif; font-weight: 800;">Kansas City Hardscapes</h1>
+        <div class="label-sm" style="margin-top: 6px; letter-spacing: 0.2em;">Job Costing</div>
+      </div>
+      <div class="rate-display">
+        <div class="label-sm">Method</div>
+        <div class="v" id="ohRate" style="font-size: 1rem;">Actual Monthly Allocation</div>
+      </div>
+    </div>
+    <nav class="tabs">
+      <button class="tab-btn active" data-tab="dashboard">Dashboard</button>
+      <button class="tab-btn" data-tab="detail">Job Detail</button>
+      <button class="tab-btn" data-tab="insights">Insights</button>
+      <button class="tab-btn" data-tab="overhead">Overhead</button>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <!-- DASHBOARD -->
+  <section id="tab-dashboard">
+    <div class="grid grid-4" style="margin-bottom: 32px;">
+      <div class="stat-card"><div class="label-sm">Total Revenue</div><div class="big" id="totRev">$0.00</div></div>
+      <div class="stat-card"><div class="label-sm">Gross Profit</div><div class="big green" id="totGross">$0.00</div></div>
+      <div class="stat-card"><div class="label-sm">Net Profit</div><div class="big" id="totNet">$0.00</div></div>
+      <div class="stat-card"><div class="label-sm">Portfolio Margin</div><div class="big" id="totMargin">0.00%</div></div>
+    </div>
+
+    <div class="toolbar">
+      <h2 class="page-h">All Jobs <span style="color: var(--ink-soft); font-weight: 400;" id="jobCount">(0)</span></h2>
+      <div class="toolbar-btns">
+        <button class="btn btn-ghost" id="btnExportCSV">↓ Export CSV</button>
+        <button class="btn btn-ghost rust" id="btnPublish">📄 Download PDF Report</button>
+        <button class="btn btn-primary" id="btnNewJob">+ New Job</button>
+      </div>
+    </div>
+
+    <div class="jobs-table" id="jobsTable"></div>
+  </section>
+
+  <!-- JOB DETAIL -->
+  <section id="tab-detail" class="hidden">
+    <div id="detailContent"></div>
+  </section>
+
+  <!-- INSIGHTS -->
+  <section id="tab-insights" class="hidden">
+    <div id="insightsContent"></div>
+  </section>
+
+  <!-- OVERHEAD -->
+  <section id="tab-overhead" class="hidden">
+    <div class="card">
+      <h2 class="section-h">Monthly Overhead Data</h2>
+      <p style="color: var(--ink-soft); font-size: 0.9rem; max-width: 680px;">
+        Enter your total business expenses and total direct labor hours worked by your crew for each month.
+        For each job, overhead is calculated per month as:
+        <span style="display: block; margin-top: 8px; padding: 10px 14px; background: var(--paper); border-left: 3px solid var(--mustard); font-style: italic;">
+          (this job's hours that month ÷ total company hours that month) × rolling 3-month avg expenses
+        </span>
+        <span style="display: block; margin-top: 8px;">The 3-month rolling average uses the job's month plus the two prior months' expenses (whatever exist), smoothing out monthly bill spikes. If a job spans two months, the two allocations are summed together.</span>
+      </p>
+    </div>
+
+    <div class="card">
+      <h2 class="section-h">Monthly Data</h2>
+      <div class="month-row header">
+        <div class="label-sm">Month</div>
+        <div class="label-sm">Expenses</div>
+        <div class="label-sm">Direct Labor Hours</div>
+      </div>
+      <div id="monthRows"></div>
+    </div>
+  </section>
+</main>
+
+<footer id="footerText">Saved automatically · 0 jobs on file</footer>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ===== STATE & STORAGE =====
+const STORAGE_JOBS = "ledger_margin_jobs";
+const STORAGE_OH = "ledger_margin_overhead";
+
+const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+let state = {
+  tab: "dashboard",
+  jobs: [],
+  overhead: blankOverhead(),
+  selectedJobId: null,
+  customFeatures: [], // user-added features beyond DEFAULT_FEATURES
+};
+
+// Default project features list
+const DEFAULT_FEATURES = [
+  "Concrete Patio",
+  "Paver Patio",
+  "Retaining Wall",
+  "Seating Wall",
+  "Pergola",
+  "Pavillion",
+  "Fireplace",
+  "Fire Pit",
+  "Outdoor Kitchen",
+  "Pool",
+  "Deck",
+];
+
+function blankJob() {
+  return {
+    id: Math.random().toString(36).slice(2, 10),
+    customer: "New Customer",
+    jobName: "",
+    features: [], // array of feature strings
+    date: new Date().toISOString().slice(0, 10),
+    startDate: "",
+    endDate: "",
+    projectPrice: 0,
+    jobMaterials: 0,
+    subcontractors: 0,
+    equipment: 0,
+    dumpster: 0,
+    permits: 0,
+    // Legacy fields for backward compat - hidden in UI
+    laborCosts: 0,
+    laborHours: 0,
+    // New month-based labor
+    // Note: month index 0 is Dec of previous year, 1=Jan, 2=Feb... so add 1 to calendar month
+    month1Index: new Date().getMonth() + 1,
+    month1LaborCosts: 0,
+    month1LaborHours: 0,
+    month2Index: -1, // -1 means no second month
+    month2LaborCosts: 0,
+    month2LaborHours: 0,
+    subsSurchargePct: 0.15,
+    notes: "",
+  };
+}
+
+function blankOverhead() {
+  const year = new Date().getFullYear();
+  const months = [{ label: "Dec " + (year - 1), expenses: 0, directLaborHours: 0 }];
+  for (let i = 0; i < 12; i++) {
+    months.push({ label: MONTHS[i] + " " + year, expenses: 0, directLaborHours: 0 });
+  }
+  return {
+    months: months, // 13 months total: index 0 = previous Dec, indexes 1-12 = current year Jan-Dec
+    manualOverride: false,
+    manualRatePerHour: 50,
+  };
+}
+
+const STORAGE_FEATURES = "ledger_margin_custom_features";
+
+function loadState() {
+  try {
+    const j = localStorage.getItem(STORAGE_JOBS);
+    if (j) state.jobs = JSON.parse(j).map(x => {
+      const migrated = Object.assign({ laborHours: 0, laborCosts: 0 }, x);
+      if (!Array.isArray(migrated.features)) migrated.features = [];
+      if (!("month1Index" in migrated)) {
+        // Infer start month from startDate or current month
+        // Note: month index 0 is Dec of previous year, so add 1 to calendar month
+        let m = new Date().getMonth() + 1;
+        if (migrated.startDate) {
+          const d = new Date(migrated.startDate + "T00:00:00");
+          if (!isNaN(d)) m = d.getMonth() + 1;
+        }
+        migrated.month1Index = m;
+        migrated.month1LaborCosts = migrated.laborCosts || 0;
+        migrated.month1LaborHours = migrated.laborHours || 0;
+        migrated.month2Index = -1;
+        migrated.month2LaborCosts = 0;
+        migrated.month2LaborHours = 0;
+      }
+      return migrated;
+    });
+  } catch(e) {}
+  try {
+    const cf = localStorage.getItem(STORAGE_FEATURES);
+    if (cf) state.customFeatures = JSON.parse(cf);
+  } catch(e) {}
+  try {
+    const o = localStorage.getItem(STORAGE_OH);
+    if (o) {
+      const parsed = JSON.parse(o);
+      if (parsed.months && parsed.months[0] && !("directLaborHours" in parsed.months[0])) {
+        parsed.months = parsed.months.map(m => ({ label: m.label, expenses: m.expenses || 0, directLaborHours: 0 }));
+      }
+      if (!("manualRatePerHour" in parsed)) parsed.manualRatePerHour = 50;
+      // Migrate: if only 12 months stored (no Dec of previous year), prepend it
+      // and shift any existing job month indexes up by 1
+      if (parsed.months && parsed.months.length === 12) {
+        const year = new Date().getFullYear();
+        parsed.months.unshift({ label: "Dec " + (year - 1), expenses: 0, directLaborHours: 0 });
+        state.jobs = state.jobs.map(j => {
+          const updated = Object.assign({}, j);
+          if (updated.month1Index != null && updated.month1Index >= 0) updated.month1Index += 1;
+          if (updated.month2Index != null && updated.month2Index >= 0) updated.month2Index += 1;
+          return updated;
+        });
+      }
+      state.overhead = parsed;
+    }
+  } catch(e) {}
+}
+
+function saveState() {
+  try {
+    localStorage.setItem(STORAGE_JOBS, JSON.stringify(state.jobs));
+    localStorage.setItem(STORAGE_OH, JSON.stringify(state.overhead));
+    localStorage.setItem(STORAGE_FEATURES, JSON.stringify(state.customFeatures));
+  } catch(e) {
+    showToast("Could not save - browser storage full or blocked");
+  }
+}
+
+// ===== FORMATTERS =====
+const fmt = n => (n == null || isNaN(n)) ? "$0.00" : n.toLocaleString("en-US",{style:"currency",currency:"USD",minimumFractionDigits:2,maximumFractionDigits:2});
+const fmtPct = n => (n == null || isNaN(n) || !isFinite(n)) ? "0.00%" : (n * 100).toFixed(2) + "%";
+const fmtHrs = n => (!n || isNaN(n)) ? "0 hrs" : n.toLocaleString("en-US",{maximumFractionDigits:1}) + " hrs";
+const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fmtDateShort = s => {
+  if (!s) return "";
+  const d = new Date(s + "T00:00:00");
+  if (isNaN(d)) return s;
+  return (d.getMonth()+1) + "/" + d.getDate() + "/" + String(d.getFullYear()).slice(2);
+};
+const fmtDateRange = j => {
+  const s = fmtDateShort(j.startDate);
+  const e = fmtDateShort(j.endDate);
+  if (s && e) return s + " → " + e;
+  if (s) return s + " →";
+  if (e) return "→ " + e;
+  // fallback to legacy single date field
+  return j.date ? fmtDateShort(j.date) : "—";
+};
+
+// ===== CALCULATIONS =====
+// Calculate overhead allocation for one month of a job:
+// (job's hours that month / total company hours that month) * rolling 3-month avg expenses
+function calcMonthOverhead(jobHours, monthIndex, overhead) {
+  if (!jobHours || jobHours <= 0) return { allocation: 0, pct: 0, monthExpenses: 0, monthTotalHours: 0, avgExpenses: 0, avgMonthsUsed: 0 };
+  if (monthIndex == null || monthIndex < 0 || monthIndex >= overhead.months.length) return { allocation: 0, pct: 0, monthExpenses: 0, monthTotalHours: 0, avgExpenses: 0, avgMonthsUsed: 0 };
+  const mo = overhead.months[monthIndex];
+  if (!mo) return { allocation: 0, pct: 0, monthExpenses: 0, monthTotalHours: 0, avgExpenses: 0, avgMonthsUsed: 0 };
+  const totalHours = +mo.directLaborHours || 0;
+  const expenses = +mo.expenses || 0;
+
+  // Rolling 3-month average expenses: this month + 2 prior (whatever exist)
+  let sumExp = 0;
+  let count = 0;
+  for (let i = 0; i < 3; i++) {
+    const idx = monthIndex - i;
+    if (idx < 0) break;
+    const m = overhead.months[idx];
+    if (!m) break;
+    // Only count months that have any data (expenses > 0) to avoid diluting with empty future-tagged months
+    const exp = +m.expenses || 0;
+    if (exp > 0) {
+      sumExp += exp;
+      count += 1;
+    }
+  }
+  const avgExpenses = count > 0 ? sumExp / count : expenses;
+
+  if (totalHours <= 0) return { allocation: 0, pct: 0, monthExpenses: expenses, monthTotalHours: 0, avgExpenses: avgExpenses, avgMonthsUsed: count };
+  const pct = jobHours / totalHours;
+  return { allocation: pct * avgExpenses, pct: pct, monthExpenses: expenses, monthTotalHours: totalHours, avgExpenses: avgExpenses, avgMonthsUsed: count };
+}
+
+function calcJob(j, _unused) {
+  const m = (+j.jobMaterials||0)+(+j.subcontractors||0)+(+j.equipment||0)+(+j.dumpster||0)+(+j.permits||0);
+  const totalLabor = (+j.month1LaborCosts||0) + (+j.month2LaborCosts||0);
+  const totalHours = (+j.month1LaborHours||0) + (+j.month2LaborHours||0);
+  const gp = (+j.projectPrice||0) - m - totalLabor;
+
+  const m1 = calcMonthOverhead(+j.month1LaborHours||0, j.month1Index, state.overhead);
+  const m2 = calcMonthOverhead(+j.month2LaborHours||0, j.month2Index, state.overhead);
+  const oh = m1.allocation + m2.allocation;
+
+  const ss = (+j.subcontractors||0) * (+j.subsSurchargePct||0);
+  const np = gp - oh - ss;
+  const nm = (+j.projectPrice||0) > 0 ? np / +j.projectPrice : 0;
+  const gm = (+j.projectPrice||0) > 0 ? gp / +j.projectPrice : 0;
+  return {
+    totalMaterials: m,
+    totalLabor: totalLabor,
+    totalHours: totalHours,
+    grossProfit: gp,
+    overheadAllocation: oh,
+    m1: m1,
+    m2: m2,
+    subsSurcharge: ss,
+    netProfit: np,
+    netMargin: nm,
+    grossMargin: gm
+  };
+}
+
+// Kept for display in header only - shows implied $/hr when data is entered
+function calcOverheadRate() {
+  const o = state.overhead;
+  if (o.manualOverride) return o.manualRatePerHour || 0;
+  const active = o.months.filter(m => (+m.expenses||0) > 0 || (+m.directLaborHours||0) > 0);
+  if (active.length === 0) return 0;
+  const avgExp = active.reduce((s,m) => s + (+m.expenses||0), 0) / active.length;
+  const avgHrs = active.reduce((s,m) => s + (+m.directLaborHours||0), 0) / active.length;
+  if (avgHrs === 0) return 0;
+  return avgExp / avgHrs;
+}
+
+// ===== RENDERING =====
+function render() {
+  const rate = calcOverheadRate();
+
+  // Header overhead rate — static label now, no update needed
+
+  // Tab visibility
+  ["dashboard","detail","insights","overhead"].forEach(t => {
+    document.getElementById("tab-" + t).classList.toggle("hidden", state.tab !== t);
+  });
+  document.querySelectorAll(".tab-btn").forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.tab === state.tab);
+  });
+
+  // Portfolio totals
+  let rev = 0, gross = 0, net = 0;
+  state.jobs.forEach(j => {
+    const c = calcJob(j, rate);
+    rev += +j.projectPrice || 0;
+    gross += c.grossProfit;
+    net += c.netProfit;
+  });
+  const margin = rev > 0 ? net / rev : 0;
+  document.getElementById("totRev").textContent = fmt(rev);
+  document.getElementById("totGross").textContent = fmt(gross);
+  const totNet = document.getElementById("totNet");
+  totNet.textContent = fmt(net);
+  totNet.className = "big " + (net >= 0 ? "green" : "red");
+  const totMargin = document.getElementById("totMargin");
+  totMargin.textContent = fmtPct(margin);
+  totMargin.className = "big " + (margin >= 0 ? "green" : "red");
+
+  document.getElementById("jobCount").textContent = "(" + state.jobs.length + ")";
+
+  // Jobs table
+  const table = document.getElementById("jobsTable");
+  const header = '<div class="job-grid job-header">'
+    + '<div class="label-sm">Customer / Job</div>'
+    + '<div class="label-sm tr">Price</div>'
+    + '<div class="label-sm tr">Materials</div>'
+    + '<div class="label-sm tr">Labor</div>'
+    + '<div class="label-sm tr">Gross</div>'
+    + '<div class="label-sm tr">Overhead</div>'
+    + '<div class="label-sm tr">Net</div>'
+    + '<div></div>'
+    + '</div>';
+  if (state.jobs.length === 0) {
+    table.innerHTML = header + '<div class="empty-state"><div class="icon">🔨</div><p class="serif" style="font-size: 1.1rem;">No jobs yet. Start by adding your first one.</p></div>';
+  } else {
+    table.innerHTML = header + state.jobs.map(j => {
+      const c = calcJob(j, rate);
+      const price = +j.projectPrice || 0;
+      const matPct = price > 0 ? c.totalMaterials / price : 0;
+      const laborPct = price > 0 ? c.totalLabor / price : 0;
+      const ohPct = price > 0 ? c.overheadAllocation / price : 0;
+      const npc = c.netProfit >= 0 ? "green" : "red";
+      const grossClass = c.grossProfit >= 0 ? "green" : "red";
+      return '<div class="job-grid" data-jobid="' + j.id + '">'
+        + '<div><div class="customer">' + (esc(j.customer) || "—") + '</div><div class="jobname">' + (j.features && j.features.length ? esc(j.features.join(" · ")) : "—") + '</div></div>'
+        + '<div class="cell-stacked">' + fmt(price) + '</div>'
+        + '<div class="cell-stacked">' + fmt(c.totalMaterials) + '<span class="pct">' + fmtPct(matPct) + '</span></div>'
+        + '<div class="cell-stacked">' + fmt(c.totalLabor) + '<span class="pct">' + fmtPct(laborPct) + '</span></div>'
+        + '<div class="cell-stacked ' + grossClass + '">' + fmt(c.grossProfit) + '<span class="pct">' + fmtPct(c.grossMargin) + '</span></div>'
+        + '<div class="cell-stacked">' + fmt(c.overheadAllocation) + '<span class="pct">' + fmtPct(ohPct) + '</span></div>'
+        + '<div class="cell-stacked bold ' + npc + '">' + fmt(c.netProfit) + '<span class="pct">' + fmtPct(c.netMargin) + '</span></div>'
+        + '<div class="tr" style="color: var(--ink-soft);">›</div>'
+        + '</div>';
+    }).join("");
+    table.querySelectorAll(".job-grid[data-jobid]").forEach(row => {
+      row.addEventListener("click", () => {
+        state.selectedJobId = row.dataset.jobid;
+        state.tab = "detail";
+        render();
+      });
+    });
+  }
+
+  // Job detail
+  if (state.tab === "detail") renderDetail(rate);
+
+  // Insights
+  if (state.tab === "insights") renderInsights();
+
+  // Overhead
+  if (state.tab === "overhead") renderOverhead(rate);
+
+  // Footer
+  document.getElementById("footerText").textContent = "Saved automatically · " + state.jobs.length + " " + (state.jobs.length === 1 ? "job" : "jobs") + " on file";
+}
+
+function renderDetail(rate) {
+  const container = document.getElementById("detailContent");
+  const job = state.jobs.find(j => j.id === state.selectedJobId);
+
+  if (!job) {
+    const others = state.jobs.slice(0, 6).map(j =>
+      '<button class="btn btn-ghost" data-pick="' + j.id + '" style="justify-content: space-between; width: 100%;"><span>' + esc(j.customer) + '</span><span>›</span></button>'
+    ).join("");
+    container.innerHTML = '<div class="card" style="text-align: center; padding: 60px 20px;">'
+      + '<div style="font-size: 2rem; opacity: 0.4; margin-bottom: 8px;">📄</div>'
+      + '<p class="serif" style="font-size: 1.2rem; margin-bottom: 16px;">No job selected</p>'
+      + (state.jobs.length > 0 ? '<p style="color: var(--ink-soft); margin-bottom: 16px;">Pick one below or create a new one.</p><div style="display: flex; flex-direction: column; gap: 6px; max-width: 320px; margin: 0 auto 20px;">' + others + '</div>' : '')
+      + '<button class="btn btn-primary" id="btnNewJobDetail">+ New Job</button>'
+      + '</div>';
+    container.querySelectorAll("[data-pick]").forEach(b => {
+      b.addEventListener("click", () => { state.selectedJobId = b.dataset.pick; render(); });
+    });
+    const newBtn = document.getElementById("btnNewJobDetail");
+    if (newBtn) newBtn.addEventListener("click", newJob);
+    return;
+  }
+
+  const c = calcJob(job, rate);
+  const totalHours = c.totalHours;
+  const effectiveRate = totalHours > 0 ? c.totalLabor / totalHours : 0;
+
+  // Build month dropdown options
+  const monthOptions = (selected) => {
+    let opts = '<option value="-1">— None —</option>';
+    for (let i = 0; i < state.overhead.months.length; i++) {
+      const sel = i === selected ? ' selected' : '';
+      opts += '<option value="' + i + '"' + sel + '>' + state.overhead.months[i].label + '</option>';
+    }
+    return opts;
+  };
+
+  // Build an overhead note line for one month
+  const ohNoteLine = (mres, jobHrs, monthIdx) => {
+    if (monthIdx < 0 || monthIdx >= state.overhead.months.length) return '';
+    const label = state.overhead.months[monthIdx].label;
+    if (jobHrs <= 0) return '<div style="font-size:0.82rem;color:var(--ink-soft);">' + esc(label) + ': no hours entered</div>';
+    if (mres.monthTotalHours <= 0) return '<div style="font-size:0.82rem;color:var(--danger);">' + esc(label) + ': enter total company hours for this month on the Overhead tab</div>';
+    return '<div style="font-size:0.82rem;color:var(--ink-soft);">' + esc(label) + ': <span class="mono">' + fmtHrs(jobHrs) + ' ÷ ' + fmtHrs(mres.monthTotalHours) + ' = ' + fmtPct(mres.pct) + '</span> × <span class="mono">' + fmt(mres.avgExpenses) + '</span> <span style="font-size:0.72rem">(' + mres.avgMonthsUsed + '-mo avg)</span> = <span class="mono" style="color:var(--ink);font-weight:600;">' + fmt(mres.allocation) + '</span></div>';
+  };
+
+  container.innerHTML = '<div class="detail-grid">'
+    + '<div>'
+      + '<div class="card"><div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;"><h2 class="section-h" style="margin: 0;">Job Information</h2><button class="btn btn-ghost" id="btnDelete" style="color: var(--danger);">🗑 Delete</button></div>'
+        + '<div class="grid grid-2">'
+          + field("customer", "Customer", job.customer, "text")
+          + numField("projectPrice", "Project Price", job.projectPrice)
+          + field("startDate", "Start Date", job.startDate, "date")
+          + field("endDate", "End Date", job.endDate, "date")
+        + '</div></div>'
+
+      + '<div class="card"><h2 class="section-h">Project Features</h2>'
+        + '<p style="color: var(--ink-soft); font-size: 0.85rem; margin: 0 0 12px;">Click to toggle. These are used to track profitability trends on the Insights tab.</p>'
+        + '<div id="featureChips">' + featureChipsHTML(job) + '</div>'
+        + '<div style="margin-top: 12px; display: flex; gap: 8px; align-items: center;">'
+          + '<input type="text" id="customFeatureInput" placeholder="Add custom feature..." style="flex:1;" />'
+          + '<button class="btn btn-ghost" id="btnAddFeature" type="button">+ Add</button>'
+        + '</div>'
+      + '</div>'
+
+      + '<div class="card"><h2 class="section-h">Direct Materials</h2><div class="grid grid-2">'
+        + numField("jobMaterials", "Job Materials", job.jobMaterials)
+        + numField("subcontractors", "Subcontractors", job.subcontractors)
+        + numField("equipment", "Equipment", job.equipment)
+        + numField("dumpster", "Dumpster", job.dumpster)
+        + numField("permits", "Permits", job.permits)
+        + '</div><div class="line total-line" style="margin-top: 16px;"><span class="label-sm">Total Direct Materials</span><span class="v" style="font-size: 1.1rem; font-weight: 600;">' + fmt(c.totalMaterials) + '</span></div></div>'
+
+      + '<div class="card"><h2 class="section-h">Labor &amp; Overhead</h2>'
+        + '<div style="margin-bottom: 16px;"><div class="label-sm" style="margin-bottom: 8px;">Month 1</div><div class="grid grid-3">'
+          + '<div class="field"><div class="label-sm">Month</div><select data-jf="month1Index">' + monthOptions(job.month1Index) + '</select></div>'
+          + numField("month1LaborCosts", "Labor Costs ($)", job.month1LaborCosts)
+          + numField("month1LaborHours", "Labor Hours", job.month1LaborHours, "", "hrs")
+        + '</div></div>'
+        + '<div style="margin-bottom: 16px;"><div class="label-sm" style="margin-bottom: 8px;">Month 2 <span style="text-transform: none; letter-spacing: 0; color: var(--ink-soft); font-weight: 400;">(optional — leave blank for single-month jobs)</span></div><div class="grid grid-3">'
+          + '<div class="field"><div class="label-sm">Month</div><select data-jf="month2Index">' + monthOptions(job.month2Index) + '</select></div>'
+          + numField("month2LaborCosts", "Labor Costs ($)", job.month2LaborCosts)
+          + numField("month2LaborHours", "Labor Hours", job.month2LaborHours, "", "hrs")
+        + '</div></div>'
+        + '<div class="grid grid-2" style="margin-top: 16px; padding-top: 16px; border-top: 1px dashed var(--line);">'
+          + '<div class="field"><div class="label-sm">Subs Surcharge %</div><div class="field-row"><input type="number" class="num" data-jf="subsSurchargePct" value="' + (job.subsSurchargePct*100 || "") + '" /><span class="suffix">%</span></div></div>'
+          + '<div class="field"><div class="label-sm">Totals</div><div style="margin-top: 8px; font-size: 0.88rem; color: var(--ink-soft);"><span class="mono">' + fmt(c.totalLabor) + '</span> · <span class="mono">' + fmtHrs(totalHours) + '</span>' + (effectiveRate > 0 ? ' · <span class="mono">' + fmt(effectiveRate) + '/hr</span>' : '') + '</div></div>'
+        + '</div>'
+        + '<div class="oh-note" style="margin-top: 16px;"><div style="font-weight: 600; color: var(--ink); margin-bottom: 6px;">Overhead Allocation</div>'
+          + ohNoteLine(c.m1, +job.month1LaborHours||0, job.month1Index)
+          + (job.month2Index >= 0 ? ohNoteLine(c.m2, +job.month2LaborHours||0, job.month2Index) : '')
+          + '<div style="margin-top: 6px; padding-top: 6px; border-top: 1px dashed var(--line); font-weight: 600; color: var(--ink);">Total Overhead: <span class="mono">' + fmt(c.overheadAllocation) + '</span></div>'
+        + '</div>'
+      + '</div>'
+
+      + '<div class="card"><h2 class="section-h">Notes</h2><textarea data-jf="notes" style="min-height: 80px; border: 1px solid var(--line); padding: 10px; resize: vertical;" placeholder="Change orders, issues, reminders...">' + esc(job.notes) + '</textarea></div>'
+    + '</div>'
+
+    + '<div><div class="card summary-card"><div class="label-sm">Summary</div>'
+      + '<h2 class="section-h" style="font-size: 1.5rem; margin: 4px 0 16px;">' + (esc(job.customer) || "Untitled") + '</h2>'
+      + '<div class="line"><span class="k">Project Price</span><span class="v">' + fmt(+job.projectPrice||0) + '</span></div>'
+      + '<div class="line"><span class="k">− Materials</span><span class="v">' + fmt(c.totalMaterials) + '</span></div>'
+      + '<div class="line"><span class="k">− Labor</span><span class="v">' + fmt(c.totalLabor) + '</span></div>'
+      + '<div class="line total-line"><span>Gross Profit</span><span class="v green" style="font-size: 1.05rem; font-weight: 600;">' + fmt(c.grossProfit) + '</span></div>'
+      + '<div class="mono" style="font-size: 0.72rem; text-align: right; color: var(--ink-soft); margin-top: -2px;">' + fmtPct(c.grossMargin) + ' gross margin</div>'
+      + '<div class="line" style="margin-top: 8px;"><span class="k">− Overhead (' + fmtHrs(totalHours) + ')</span><span class="v">' + fmt(c.overheadAllocation) + '</span></div>'
+      + '<div class="line"><span class="k">− Subs Surcharge</span><span class="v">' + fmt(c.subsSurcharge) + '</span></div>'
+      + '<div class="net-box" style="background: ' + (c.netProfit >= 0 ? 'var(--forest)' : 'var(--danger)') + ';"><div class="lbl">Net Profit</div><div class="big">' + fmt(c.netProfit) + '</div><div class="small">' + fmtPct(c.netMargin) + ' margin</div></div>'
+    + '</div></div>'
+    + '</div>';
+
+  // Wire up inputs
+  container.querySelectorAll("[data-jf]").forEach(el => {
+    const handler = () => {
+      const key = el.dataset.jf;
+      let val = el.value;
+      if (key === "subsSurchargePct") val = (parseFloat(val) || 0) / 100;
+      else if (key === "month1Index" || key === "month2Index") val = parseInt(val);
+      else if (["projectPrice","jobMaterials","subcontractors","equipment","dumpster","permits","month1LaborCosts","month1LaborHours","month2LaborCosts","month2LaborHours"].includes(key)) val = parseFloat(val) || 0;
+      job[key] = val;
+      saveState();
+      updateDetailSummary(job, calcOverheadRate());
+    };
+    el.addEventListener("input", handler);
+    if (el.tagName === "SELECT") el.addEventListener("change", handler);
+  });
+
+  document.getElementById("btnDelete").addEventListener("click", () => {
+    if (confirm("Delete this job?")) {
+      state.jobs = state.jobs.filter(j => j.id !== job.id);
+      state.selectedJobId = null;
+      saveState();
+      state.tab = "dashboard";
+      render();
+    }
+  });
+
+  // Feature chip clicks
+  const chipsContainer = document.getElementById("featureChips");
+  if (chipsContainer) {
+    chipsContainer.addEventListener("click", (e) => {
+      const chip = e.target.closest(".feature-chip");
+      if (!chip) return;
+      const f = chip.dataset.feature;
+      if (!Array.isArray(job.features)) job.features = [];
+      const idx = job.features.indexOf(f);
+      if (idx >= 0) {
+        job.features.splice(idx, 1);
+        chip.classList.remove("active");
+      } else {
+        job.features.push(f);
+        chip.classList.add("active");
+      }
+      saveState();
+    });
+  }
+
+  // Add custom feature
+  const addBtn = document.getElementById("btnAddFeature");
+  const addInput = document.getElementById("customFeatureInput");
+  const addCustomFeature = () => {
+    const v = (addInput.value || "").trim();
+    if (!v) return;
+    const all = getAllFeatures();
+    if (!all.includes(v)) {
+      state.customFeatures.push(v);
+    }
+    if (!Array.isArray(job.features)) job.features = [];
+    if (!job.features.includes(v)) job.features.push(v);
+    addInput.value = "";
+    saveState();
+    // Re-render just the chips area
+    chipsContainer.innerHTML = featureChipsHTML(job);
+  };
+  if (addBtn) addBtn.addEventListener("click", addCustomFeature);
+  if (addInput) addInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); addCustomFeature(); }
+  });
+}
+
+function updateDetailSummary(job, rate) {
+  // Targeted updates only — never rebuild inputs while user is typing,
+  // because type=number inputs lose cursor position on rebuild (browser limitation).
+  const c = calcJob(job, rate);
+  const totalHours = c.totalHours;
+
+  // Find the detail card and update specific spans by querying within it
+  const container = document.getElementById("detailContent");
+  if (!container) return;
+
+  // Helper: set text content of element matching selector inside container
+  const set = (sel, val) => {
+    const el = container.querySelector(sel);
+    if (el) el.textContent = val;
+  };
+  const setHTML = (sel, val) => {
+    const el = container.querySelector(sel);
+    if (el) el.innerHTML = val;
+  };
+
+  // Update all the calculated displays in the summary card
+  const summaryCard = container.querySelector(".summary-card");
+  if (summaryCard) {
+    const lines = summaryCard.querySelectorAll(".line .v");
+    // Order: Project Price, − Materials, − Labor, Gross Profit, − Overhead, − Subs Surcharge
+    if (lines[0]) lines[0].textContent = fmt(+job.projectPrice||0);
+    if (lines[1]) lines[1].textContent = fmt(c.totalMaterials);
+    if (lines[2]) lines[2].textContent = fmt(c.totalLabor);
+    if (lines[3]) lines[3].textContent = fmt(c.grossProfit);
+    if (lines[4]) lines[4].textContent = fmt(c.overheadAllocation);
+    if (lines[5]) lines[5].textContent = fmt(c.subsSurcharge);
+
+    // Update gross margin sub-line
+    const grossMarginEl = summaryCard.querySelector(".mono[style*='gross margin']") || summaryCard.querySelectorAll(".mono")[summaryCard.querySelectorAll(".mono").length - 1];
+    // Easier: find the small text under gross profit
+    const allMonos = summaryCard.querySelectorAll(".mono");
+    allMonos.forEach(el => {
+      if (el.textContent.includes("gross margin")) el.textContent = fmtPct(c.grossMargin) + " gross margin";
+    });
+
+    // Update overhead label to reflect current total hours
+    const ks = summaryCard.querySelectorAll(".line .k");
+    ks.forEach(k => {
+      if (k.textContent.startsWith("− Overhead")) k.textContent = "− Overhead (" + fmtHrs(totalHours) + ")";
+    });
+
+    // Update Net Profit box
+    const netBox = summaryCard.querySelector(".net-box");
+    if (netBox) {
+      netBox.style.background = c.netProfit >= 0 ? 'var(--forest)' : 'var(--danger)';
+      const big = netBox.querySelector(".big");
+      const small = netBox.querySelector(".small");
+      if (big) big.textContent = fmt(c.netProfit);
+      if (small) small.textContent = fmtPct(c.netMargin) + " margin";
+    }
+  }
+
+  // Update Total Direct Materials line in the materials card
+  const matCard = container.querySelectorAll(".card");
+  matCard.forEach(card => {
+    const heading = card.querySelector(".section-h");
+    if (heading && heading.textContent.includes("Direct Materials")) {
+      const totalSpan = card.querySelector(".total-line .v");
+      if (totalSpan) totalSpan.textContent = fmt(c.totalMaterials);
+    }
+    if (heading && heading.textContent.includes("Labor")) {
+      // Update the totals readout in Labor & Overhead
+      const totalsField = card.querySelectorAll(".field");
+      totalsField.forEach(f => {
+        const lbl = f.querySelector(".label-sm");
+        if (lbl && lbl.textContent === "Totals") {
+          const div = f.querySelector("div[style*='font-size']");
+          if (div) {
+            const eff = totalHours > 0 ? c.totalLabor / totalHours : 0;
+            div.innerHTML = '<span class="mono">' + fmt(c.totalLabor) + '</span> · <span class="mono">' + fmtHrs(totalHours) + '</span>' + (eff > 0 ? ' · <span class="mono">' + fmt(eff) + '/hr</span>' : '');
+          }
+        }
+      });
+      // Update the overhead breakdown note
+      const ohNote = card.querySelector(".oh-note");
+      if (ohNote) {
+        let html = '<div style="font-weight: 600; color: var(--ink); margin-bottom: 6px;">Overhead Allocation</div>';
+        const ohNoteLine = (mres, jobHrs, monthIdx) => {
+          if (monthIdx < 0 || monthIdx >= state.overhead.months.length) return '';
+          const label = state.overhead.months[monthIdx].label;
+          if (jobHrs <= 0) return '<div style="font-size:0.82rem;color:var(--ink-soft);">' + esc(label) + ': no hours entered</div>';
+          if (mres.monthTotalHours <= 0) return '<div style="font-size:0.82rem;color:var(--danger);">' + esc(label) + ': enter total company hours for this month on the Overhead tab</div>';
+          return '<div style="font-size:0.82rem;color:var(--ink-soft);">' + esc(label) + ': <span class="mono">' + fmtHrs(jobHrs) + ' ÷ ' + fmtHrs(mres.monthTotalHours) + ' = ' + fmtPct(mres.pct) + '</span> × <span class="mono">' + fmt(mres.avgExpenses) + '</span> <span style="font-size:0.72rem">(' + mres.avgMonthsUsed + '-mo avg)</span> = <span class="mono" style="color:var(--ink);font-weight:600;">' + fmt(mres.allocation) + '</span></div>';
+        };
+        html += ohNoteLine(c.m1, +job.month1LaborHours||0, job.month1Index);
+        if (job.month2Index >= 0) html += ohNoteLine(c.m2, +job.month2LaborHours||0, job.month2Index);
+        html += '<div style="margin-top: 6px; padding-top: 6px; border-top: 1px dashed var(--line); font-weight: 600; color: var(--ink);">Total Overhead: <span class="mono">' + fmt(c.overheadAllocation) + '</span></div>';
+        ohNote.innerHTML = html;
+      }
+    }
+  });
+
+  // Update dashboard portfolio totals in case user switches back
+  // (these aren't visible while typing in detail, so safe to defer)
+}
+
+function field(key, label, value, type) {
+  return '<div class="field"><div class="label-sm">' + label + '</div><input type="' + (type||"text") + '" data-jf="' + key + '" value="' + esc(value) + '" /></div>';
+}
+
+function numField(key, label, value, prefix, suffix) {
+  const p = prefix === undefined ? "$" : prefix;
+  const s = suffix || "";
+  return '<div class="field"><div class="label-sm">' + label + '</div><div class="field-row">'
+    + (p ? '<span class="prefix">' + p + '</span>' : '')
+    + '<input type="number" class="num" data-jf="' + key + '" value="' + (value || "") + '" placeholder="0.00" />'
+    + (s ? '<span class="suffix">' + s + '</span>' : '')
+    + '</div></div>';
+}
+
+function featureChipsHTML(job) {
+  const all = getAllFeatures();
+  const selected = new Set(job.features || []);
+  return all.map(f => {
+    const active = selected.has(f);
+    return '<button type="button" class="feature-chip' + (active ? ' active' : '') + '" data-feature="' + esc(f) + '">' + esc(f) + '</button>';
+  }).join("");
+}
+
+function renderOverhead(rate) {
+  const o = state.overhead;
+
+  const rows = document.getElementById("monthRows");
+  rows.innerHTML = o.months.map((m, i) =>
+    '<div class="month-row">'
+    + '<input type="text" data-mf="label" data-i="' + i + '" value="' + esc(m.label) + '" />'
+    + '<div class="field-row"><span class="prefix">$</span><input type="number" class="num" data-mf="expenses" data-i="' + i + '" value="' + (m.expenses || "") + '" placeholder="0.00" /></div>'
+    + '<div class="field-row"><input type="number" class="num" data-mf="directLaborHours" data-i="' + i + '" value="' + (m.directLaborHours || "") + '" placeholder="0" /><span class="suffix">hrs</span></div>'
+    + '</div>'
+  ).join("");
+
+  rows.querySelectorAll("[data-mf]").forEach(el => {
+    el.addEventListener("input", () => {
+      const i = parseInt(el.dataset.i);
+      const k = el.dataset.mf;
+      let v = el.value;
+      if (k === "expenses" || k === "directLaborHours") v = parseFloat(v) || 0;
+      o.months[i][k] = v;
+      saveState();
+    });
+  });
+}
+
+// ===== INSIGHTS / CHARTS =====
+function getAllFeatures() {
+  // Combine default + custom + any features actually used in jobs (in case of imported data)
+  const set = new Set();
+  DEFAULT_FEATURES.forEach(f => set.add(f));
+  state.customFeatures.forEach(f => set.add(f));
+  state.jobs.forEach(j => (j.features || []).forEach(f => set.add(f)));
+  return Array.from(set);
+}
+
+function aggregateByFeature() {
+  // For each feature, accumulate revenue, net profit, and job count
+  // (Jobs with multiple features count toward each feature.)
+  const map = {};
+  state.jobs.forEach(j => {
+    const c = calcJob(j, 0);
+    (j.features || []).forEach(f => {
+      if (!map[f]) map[f] = { feature: f, revenue: 0, net: 0, gross: 0, count: 0 };
+      map[f].revenue += +j.projectPrice || 0;
+      map[f].net += c.netProfit;
+      map[f].gross += c.grossProfit;
+      map[f].count += 1;
+    });
+  });
+  return Object.values(map).map(d => ({
+    ...d,
+    netMargin: d.revenue > 0 ? d.net / d.revenue : 0,
+    grossMargin: d.revenue > 0 ? d.gross / d.revenue : 0,
+  }));
+}
+
+function aggregateByFeatureByMonth() {
+  // For each feature, per-month avg margin (using job's start month as the bucket)
+  // Returns: { feature: { "2026-03": { revenue, net, count }, ... } }
+  const map = {};
+  state.jobs.forEach(j => {
+    const c = calcJob(j, 0);
+    // bucket by start month
+    let bucket = "Unknown";
+    if (j.startDate) {
+      const d = new Date(j.startDate + "T00:00:00");
+      if (!isNaN(d)) bucket = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0");
+    }
+    (j.features || []).forEach(f => {
+      if (!map[f]) map[f] = {};
+      if (!map[f][bucket]) map[f][bucket] = { revenue: 0, net: 0, count: 0 };
+      map[f][bucket].revenue += +j.projectPrice || 0;
+      map[f][bucket].net += c.netProfit;
+      map[f][bucket].count += 1;
+    });
+  });
+  return map;
+}
+
+// SVG bar chart - horizontal bars, sorted descending
+function svgBarChart(data, valueKey, formatFn, options) {
+  options = options || {};
+  if (!data || data.length === 0) {
+    return '<div style="padding:40px;text-align:center;color:var(--ink-soft);font-style:italic;">No data yet — add features to your jobs to see this chart.</div>';
+  }
+  const sorted = [...data].sort((a, b) => b[valueKey] - a[valueKey]);
+  const W = 700, rowH = 36, padL = 160, padR = 120, padT = 10, padB = 10;
+  const H = padT + padB + sorted.length * rowH;
+  const maxVal = Math.max(...sorted.map(d => Math.abs(d[valueKey])), 0.0001);
+  const barAreaW = W - padL - padR;
+
+  let svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;height:auto;font-family:Poppins,sans-serif;">';
+
+  sorted.forEach((d, i) => {
+    const y = padT + i * rowH;
+    const val = d[valueKey];
+    const barW = (Math.abs(val) / maxVal) * barAreaW;
+    const color = val >= 0 ? "#1e3a6f" : "#a83232";
+    // Label
+    svg += '<text x="' + (padL - 10) + '" y="' + (y + rowH/2 + 4) + '" text-anchor="end" font-size="13" fill="#0b1a33" font-weight="600">' + esc(d.feature) + '</text>';
+    // Count
+    svg += '<text x="' + (padL - 10) + '" y="' + (y + rowH/2 + 17) + '" text-anchor="end" font-size="9" fill="#4a5878">' + d.count + ' ' + (d.count === 1 ? 'job' : 'jobs') + '</text>';
+    // Bar
+    svg += '<rect x="' + padL + '" y="' + (y + 8) + '" width="' + barW + '" height="' + (rowH - 16) + '" fill="' + color + '" rx="2"/>';
+    // Value label at end of bar
+    svg += '<text x="' + (padL + barW + 6) + '" y="' + (y + rowH/2 + 4) + '" font-size="12" fill="#0b1a33" font-weight="600">' + formatFn(val) + '</text>';
+  });
+
+  svg += '</svg>';
+  return svg;
+}
+
+// SVG line chart - margin trend over time, one line per feature
+function svgLineChart(featureMonthMap) {
+  const features = Object.keys(featureMonthMap);
+  if (features.length === 0) {
+    return '<div style="padding:40px;text-align:center;color:var(--ink-soft);font-style:italic;">No data yet — add features to your jobs to see this chart.</div>';
+  }
+
+  // Collect all unique month buckets across all features and sort
+  const allBuckets = new Set();
+  features.forEach(f => {
+    Object.keys(featureMonthMap[f]).forEach(b => {
+      if (b !== "Unknown") allBuckets.add(b);
+    });
+  });
+  const buckets = Array.from(allBuckets).sort();
+  if (buckets.length === 0) {
+    return '<div style="padding:40px;text-align:center;color:var(--ink-soft);font-style:italic;">Add start dates to your jobs to see trends over time.</div>';
+  }
+
+  const W = 760, H = 360, padL = 50, padR = 200, padT = 20, padB = 50;
+  const plotW = W - padL - padR;
+  const plotH = H - padT - padB;
+
+  // Compute margin per feature per bucket and find y range
+  let minY = 0, maxY = 0;
+  const series = features.map(f => {
+    const points = buckets.map((b, i) => {
+      const cell = featureMonthMap[f][b];
+      if (!cell || cell.revenue === 0) return null;
+      const margin = cell.net / cell.revenue;
+      if (margin < minY) minY = margin;
+      if (margin > maxY) maxY = margin;
+      return { x: i, y: margin, count: cell.count };
+    });
+    return { feature: f, points: points };
+  });
+  // Pad y range a bit
+  const yRange = maxY - minY || 0.1;
+  minY -= yRange * 0.1;
+  maxY += yRange * 0.1;
+
+  const xStep = buckets.length > 1 ? plotW / (buckets.length - 1) : 0;
+  const xPos = i => padL + i * xStep;
+  const yPos = v => padT + plotH - ((v - minY) / (maxY - minY)) * plotH;
+
+  // Color palette - 11 distinct navy/gold/forest tones
+  const colors = ["#1e3a6f", "#c8a04a", "#2d6a4f", "#a83232", "#6b4a8a", "#4a8a8a", "#8a4a4a", "#4a6b8a", "#8a6b4a", "#4a8a6b", "#6b8a4a"];
+
+  let svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;height:auto;font-family:Poppins,sans-serif;">';
+
+  // Y axis grid lines and labels
+  const yTicks = 5;
+  for (let i = 0; i <= yTicks; i++) {
+    const v = minY + (maxY - minY) * (i / yTicks);
+    const y = yPos(v);
+    svg += '<line x1="' + padL + '" y1="' + y + '" x2="' + (padL + plotW) + '" y2="' + y + '" stroke="#e6ebf3" stroke-width="1"/>';
+    svg += '<text x="' + (padL - 6) + '" y="' + (y + 4) + '" text-anchor="end" font-size="10" fill="#4a5878">' + (v * 100).toFixed(0) + '%</text>';
+  }
+
+  // Zero line
+  if (minY < 0 && maxY > 0) {
+    const zy = yPos(0);
+    svg += '<line x1="' + padL + '" y1="' + zy + '" x2="' + (padL + plotW) + '" y2="' + zy + '" stroke="#0b1a33" stroke-width="1.5"/>';
+  }
+
+  // X axis labels
+  buckets.forEach((b, i) => {
+    const x = xPos(i);
+    // Format YYYY-MM as MMM 'YY
+    const [yr, mo] = b.split("-");
+    const moNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    const label = moNames[parseInt(mo) - 1] + " '" + yr.slice(2);
+    svg += '<text x="' + x + '" y="' + (padT + plotH + 18) + '" text-anchor="middle" font-size="10" fill="#4a5878">' + label + '</text>';
+  });
+
+  // Lines + points (only draw segments between non-null points)
+  series.forEach((s, idx) => {
+    const color = colors[idx % colors.length];
+    let pathD = "";
+    let started = false;
+    s.points.forEach((p, i) => {
+      if (p === null) {
+        started = false;
+        return;
+      }
+      const x = xPos(p.x);
+      const y = yPos(p.y);
+      if (!started) {
+        pathD += "M" + x + " " + y;
+        started = true;
+      } else {
+        pathD += " L" + x + " " + y;
+      }
+    });
+    if (pathD) {
+      svg += '<path d="' + pathD + '" fill="none" stroke="' + color + '" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>';
+    }
+    // Points
+    s.points.forEach((p, i) => {
+      if (p === null) return;
+      svg += '<circle cx="' + xPos(p.x) + '" cy="' + yPos(p.y) + '" r="4" fill="' + color + '" stroke="white" stroke-width="2"/>';
+    });
+  });
+
+  // Legend on the right
+  series.forEach((s, idx) => {
+    const color = colors[idx % colors.length];
+    const ly = padT + 8 + idx * 22;
+    if (ly > H - padB) return;
+    svg += '<circle cx="' + (padL + plotW + 14) + '" cy="' + ly + '" r="5" fill="' + color + '"/>';
+    svg += '<text x="' + (padL + plotW + 24) + '" y="' + (ly + 4) + '" font-size="11" fill="#0b1a33" font-weight="500">' + esc(s.feature) + '</text>';
+  });
+
+  svg += '</svg>';
+  return svg;
+}
+
+// SVG horizontal stacked bar showing revenue mix
+function svgRevenueMix(data) {
+  if (!data || data.length === 0) {
+    return '<div style="padding:40px;text-align:center;color:var(--ink-soft);font-style:italic;">No data yet — add features to your jobs to see this chart.</div>';
+  }
+  const sorted = [...data].sort((a, b) => b.revenue - a.revenue);
+  const total = sorted.reduce((s, d) => s + d.revenue, 0);
+  if (total === 0) return '<div style="padding:40px;text-align:center;color:var(--ink-soft);font-style:italic;">No revenue recorded yet.</div>';
+
+  const colors = ["#1e3a6f", "#c8a04a", "#2d6a4f", "#a83232", "#6b4a8a", "#4a8a8a", "#8a4a4a", "#4a6b8a", "#8a6b4a", "#4a8a6b", "#6b8a4a"];
+
+  const W = 760, barH = 60, padL = 10, padR = 10, padT = 30, padB = 10;
+  const legendH = Math.ceil(sorted.length / 3) * 26 + 10;
+  const H = padT + barH + 20 + legendH + padB;
+  const barW = W - padL - padR;
+
+  let svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;height:auto;font-family:Poppins,sans-serif;">';
+
+  // Total label
+  svg += '<text x="' + padL + '" y="20" font-size="13" fill="#4a5878">Total Revenue: <tspan font-weight="700" fill="#0b1a33">' + fmt(total) + '</tspan></text>';
+
+  // Stacked bar
+  let xCursor = padL;
+  sorted.forEach((d, i) => {
+    const w = (d.revenue / total) * barW;
+    const color = colors[i % colors.length];
+    svg += '<rect x="' + xCursor + '" y="' + padT + '" width="' + w + '" height="' + barH + '" fill="' + color + '"/>';
+    // Inline % label if segment is wide enough
+    if (w > 60) {
+      const pct = (d.revenue / total * 100).toFixed(0) + "%";
+      svg += '<text x="' + (xCursor + w/2) + '" y="' + (padT + barH/2 + 5) + '" text-anchor="middle" font-size="14" fill="white" font-weight="700">' + pct + '</text>';
+    }
+    xCursor += w;
+  });
+
+  // Legend (3 columns)
+  const colW = barW / 3;
+  sorted.forEach((d, i) => {
+    const col = i % 3;
+    const row = Math.floor(i / 3);
+    const lx = padL + col * colW;
+    const ly = padT + barH + 25 + row * 26;
+    const color = colors[i % colors.length];
+    svg += '<rect x="' + lx + '" y="' + (ly - 9) + '" width="12" height="12" fill="' + color + '"/>';
+    const pct = (d.revenue / total * 100).toFixed(1) + "%";
+    svg += '<text x="' + (lx + 18) + '" y="' + (ly + 1) + '" font-size="11" fill="#0b1a33" font-weight="600">' + esc(d.feature) + '</text>';
+    svg += '<text x="' + (lx + 18) + '" y="' + (ly + 14) + '" font-size="10" fill="#4a5878">' + fmt(d.revenue) + ' · ' + pct + '</text>';
+  });
+
+  svg += '</svg>';
+  return svg;
+}
+
+function renderInsights() {
+  const container = document.getElementById("insightsContent");
+  const agg = aggregateByFeature();
+  const trendMap = aggregateByFeatureByMonth();
+
+  if (state.jobs.length === 0) {
+    container.innerHTML = '<div class="card" style="text-align:center;padding:60px 20px;"><div style="font-size:2rem;opacity:0.4;margin-bottom:8px;">📊</div><p class="serif" style="font-size:1.2rem;">No jobs yet</p><p style="color:var(--ink-soft);">Add jobs with project features to see profitability insights.</p></div>';
+    return;
+  }
+
+  if (agg.length === 0) {
+    container.innerHTML = '<div class="card" style="text-align:center;padding:60px 20px;"><div style="font-size:2rem;opacity:0.4;margin-bottom:8px;">🏷️</div><p class="serif" style="font-size:1.2rem;">No project features tagged yet</p><p style="color:var(--ink-soft);">Open any job and select features (Concrete Patio, Retaining Wall, etc.) to see insights here.</p></div>';
+    return;
+  }
+
+  let html = '';
+
+  // Chart 1: Avg margin by feature
+  html += '<div class="card"><h2 class="section-h">Average Net Margin by Feature</h2>';
+  html += '<p style="color:var(--ink-soft);font-size:0.85rem;margin:0 0 16px;">Which features make you the most money, as a % of project price. Sorted highest to lowest.</p>';
+  html += svgBarChart(agg, "netMargin", v => fmtPct(v));
+  html += '</div>';
+
+  // Chart 2: Revenue mix
+  html += '<div class="card"><h2 class="section-h">Revenue Mix by Feature</h2>';
+  html += '<p style="color:var(--ink-soft);font-size:0.85rem;margin:0 0 16px;">Where your revenue comes from. Jobs with multiple features count toward each feature\'s share.</p>';
+  html += svgRevenueMix(agg);
+  html += '</div>';
+
+  // Chart 3: Margin trend over time
+  html += '<div class="card"><h2 class="section-h">Margin Trend Over Time</h2>';
+  html += '<p style="color:var(--ink-soft);font-size:0.85rem;margin:0 0 16px;">Net margin per feature, by job start month. Helps spot trends — are your patios getting more or less profitable?</p>';
+  html += svgLineChart(trendMap);
+  html += '</div>';
+
+  container.innerHTML = html;
+}
+
+
+// ===== ACTIONS =====
+function newJob() {
+  const j = blankJob();
+  state.jobs.unshift(j);
+  state.selectedJobId = j.id;
+  state.tab = "detail";
+  saveState();
+  render();
+}
+
+function exportCSV() {
+  const rate = calcOverheadRate();
+  const headers = ["Customer","Features","Start Date","End Date","Project Price","Materials","M1 Month","M1 Labor $","M1 Labor Hrs","M1 Overhead","M2 Month","M2 Labor $","M2 Labor Hrs","M2 Overhead","Total Labor","Total Hrs","Gross Profit","Total Overhead","Subs Surcharge","Net Profit","Margin %"];
+  const rows = state.jobs.map(j => {
+    const c = calcJob(j, rate);
+    const m1Label = (j.month1Index >= 0 && j.month1Index < state.overhead.months.length) ? state.overhead.months[j.month1Index].label : "";
+    const m2Label = (j.month2Index >= 0 && j.month2Index < state.overhead.months.length) ? state.overhead.months[j.month2Index].label : "";
+    const features = (j.features || []).join("; ");
+    return [j.customer, features, j.startDate || j.date || "", j.endDate || "", j.projectPrice, c.totalMaterials, m1Label, j.month1LaborCosts||0, j.month1LaborHours||0, c.m1.allocation, m2Label, j.month2LaborCosts||0, j.month2LaborHours||0, c.m2.allocation, c.totalLabor, c.totalHours, c.grossProfit, c.overheadAllocation, c.subsSurcharge, c.netProfit, (c.netMargin*100).toFixed(2) + "%"];
+  });
+  const csv = [headers].concat(rows).map(r => r.map(v => '"' + String(v).replace(/"/g,'""') + '"').join(",")).join("\n");
+  download(csv, "job-costs.csv", "text/csv");
+  showToast("CSV downloaded");
+}
+
+function printPDF() {
+  const rate = calcOverheadRate();
+  const today = new Date();
+  const todayStr = today.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+
+  // Build print-friendly HTML
+  let html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Kansas City Hardscapes — Job Costing Report</title>';
+  html += '<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&display=swap" rel="stylesheet">';
+  html += '<style>';
+  html += '@page { size: letter; margin: 0.5in; }';
+  html += '* { box-sizing: border-box; font-family: \'Poppins\', sans-serif; }';
+  html += 'body { margin: 0; color: #0b1a33; font-size: 11pt; }';
+  html += '.cover { text-align: center; padding: 60px 20px; border-bottom: 3px solid #1e3a6f; margin-bottom: 30px; }';
+  html += '.cover h1 { font-size: 32pt; font-weight: 800; margin: 0; color: #0b1a33; }';
+  html += '.cover .sub { font-size: 10pt; letter-spacing: 0.2em; text-transform: uppercase; color: #4a5878; margin-top: 8px; }';
+  html += '.cover .date { font-size: 11pt; color: #4a5878; margin-top: 20px; }';
+  html += '.portfolio { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 30px; }';
+  html += '.stat { border: 1px solid #c8d1e0; padding: 14px; }';
+  html += '.stat .label { font-size: 8pt; letter-spacing: 0.12em; text-transform: uppercase; color: #4a5878; font-weight: 600; }';
+  html += '.stat .val { font-size: 16pt; font-weight: 700; margin-top: 4px; color: #0b1a33; }';
+  html += '.green { color: #2d6a4f; } .red { color: #a83232; }';
+  html += 'h2 { font-size: 16pt; font-weight: 700; margin: 0 0 12px; padding-bottom: 6px; border-bottom: 2px solid #0b1a33; }';
+  html += 'h3 { font-size: 13pt; font-weight: 700; margin: 0 0 4px; color: #0b1a33; }';
+  html += '.sub-h { font-size: 9pt; color: #4a5878; margin-bottom: 12px; }';
+  html += '.job { page-break-inside: avoid; page-break-before: always; padding-top: 10px; }';
+  html += '.job:first-of-type { page-break-before: auto; }';
+  html += '.job-summary-page { page-break-before: always; }';
+  html += '.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 10px; }';
+  html += '.sec { margin-bottom: 14px; }';
+  html += '.sec-title { font-size: 10pt; font-weight: 700; color: #0b1a33; text-transform: uppercase; letter-spacing: 0.08em; padding-bottom: 4px; border-bottom: 1px solid #c8d1e0; margin-bottom: 6px; }';
+  html += '.row { display: flex; justify-content: space-between; padding: 3px 0; font-size: 10pt; }';
+  html += '.row .k { color: #4a5878; }';
+  html += '.row .v { font-weight: 600; }';
+  html += '.total-row { border-top: 1px dashed #c8d1e0; padding-top: 6px; margin-top: 4px; font-weight: 700; }';
+  html += '.net-box { padding: 14px; color: white; margin-top: 12px; }';
+  html += '.net-box .lbl { font-size: 8pt; letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.9; }';
+  html += '.net-box .big { font-size: 22pt; font-weight: 800; margin-top: 2px; }';
+  html += '.net-box .small { font-size: 10pt; opacity: 0.9; }';
+  html += 'table.jobs-list { width: 100%; border-collapse: collapse; margin-top: 10px; }';
+  html += 'table.jobs-list th { text-align: left; font-size: 8pt; letter-spacing: 0.1em; text-transform: uppercase; color: #4a5878; border-bottom: 2px solid #0b1a33; padding: 8px 6px; }';
+  html += 'table.jobs-list td { padding: 10px 6px; border-bottom: 1px solid #c8d1e0; font-size: 10pt; }';
+  html += 'table.jobs-list .tr { text-align: right; font-weight: 600; }';
+  html += '.oh-breakdown { background: #f4f6fa; padding: 10px; font-size: 9pt; margin-top: 8px; border-left: 3px solid #c8a04a; }';
+  html += '.oh-breakdown .line { margin: 3px 0; color: #4a5878; }';
+  html += '.oh-breakdown .total { margin-top: 6px; padding-top: 6px; border-top: 1px dashed #c8d1e0; color: #0b1a33; font-weight: 700; }';
+  html += '.footer-note { margin-top: 30px; padding-top: 12px; border-top: 1px solid #c8d1e0; text-align: center; font-size: 8pt; color: #4a5878; font-style: italic; }';
+  html += '@media print { .no-print { display: none; } }';
+  html += '.print-bar { position: fixed; top: 0; left: 0; right: 0; background: #0b1a33; color: white; padding: 14px; text-align: center; z-index: 9999; }';
+  html += '.print-bar button { background: #c8a04a; color: #0b1a33; border: none; padding: 8px 20px; font-weight: 700; cursor: pointer; margin-left: 12px; font-size: 12pt; }';
+  html += '.print-bar button:hover { background: #d4b05a; }';
+  html += 'body { padding-top: 60px; }';
+  html += '@media print { body { padding-top: 0; } }';
+  html += '</style></head><body>';
+
+  html += '<div class="print-bar no-print">Ready to save as PDF. Click the button → in the print dialog, choose "Save as PDF" as the destination. <button onclick="window.print()">Open Print Dialog</button></div>';
+
+  // Cover
+  html += '<div class="cover"><h1>Kansas City Hardscapes</h1><div class="sub">Job Costing Report</div><div class="date">' + todayStr + '</div></div>';
+
+  // Portfolio totals
+  let rev = 0, gross = 0, net = 0, oh = 0;
+  state.jobs.forEach(j => {
+    const c = calcJob(j, rate);
+    rev += +j.projectPrice || 0;
+    gross += c.grossProfit;
+    net += c.netProfit;
+    oh += c.overheadAllocation;
+  });
+  const margin = rev > 0 ? net / rev : 0;
+
+  html += '<h2>Portfolio Summary</h2>';
+  html += '<div class="portfolio">';
+  html += '<div class="stat"><div class="label">Total Revenue</div><div class="val">' + fmt(rev) + '</div></div>';
+  html += '<div class="stat"><div class="label">Gross Profit</div><div class="val green">' + fmt(gross) + '</div></div>';
+  html += '<div class="stat"><div class="label">Net Profit</div><div class="val ' + (net >= 0 ? 'green' : 'red') + '">' + fmt(net) + '</div></div>';
+  html += '<div class="stat"><div class="label">Portfolio Margin</div><div class="val ' + (margin >= 0 ? 'green' : 'red') + '">' + fmtPct(margin) + '</div></div>';
+  html += '</div>';
+
+  // Jobs list table
+  html += '<h2>All Jobs (' + state.jobs.length + ')</h2>';
+  html += '<table class="jobs-list"><thead><tr><th>Customer / Job</th><th>Dates</th><th class="tr">Price</th><th class="tr">Hours</th><th class="tr">Gross</th><th class="tr">Net</th><th class="tr">Margin</th></tr></thead><tbody>';
+  state.jobs.forEach(j => {
+    const c = calcJob(j, rate);
+    const npc = c.netProfit >= 0 ? 'green' : 'red';
+    html += '<tr>';
+    html += '<td><strong>' + esc(j.customer || '—') + '</strong><br><span style="font-size:9pt;color:#4a5878">' + esc((j.features || []).join(' · ') || '—') + '</span></td>';
+    html += '<td style="font-size:9pt;color:#4a5878">' + esc(fmtDateRange(j)) + '</td>';
+    html += '<td class="tr">' + fmt(+j.projectPrice || 0) + '</td>';
+    html += '<td class="tr" style="color:#4a5878">' + fmtHrs(c.totalHours) + '</td>';
+    html += '<td class="tr green">' + fmt(c.grossProfit) + '</td>';
+    html += '<td class="tr ' + npc + '">' + fmt(c.netProfit) + '</td>';
+    html += '<td class="tr ' + npc + '">' + fmtPct(c.netMargin) + '</td>';
+    html += '</tr>';
+  });
+  html += '</tbody></table>';
+
+  // Per-job detail pages
+  state.jobs.forEach((j, idx) => {
+    const c = calcJob(j, rate);
+    html += '<div class="job">';
+    html += '<h2>' + esc(j.customer || 'Untitled') + '</h2>';
+    html += '<div class="sub-h">' + esc((j.features || []).join(' · ') || '—') + ' · ' + esc(fmtDateRange(j)) + '</div>';
+    html += '<div class="grid2">';
+
+    // Left col
+    html += '<div>';
+    html += '<div class="sec"><div class="sec-title">Job Information</div>';
+    html += '<div class="row"><span class="k">Project Price</span><span class="v">' + fmt(+j.projectPrice || 0) + '</span></div>';
+    html += '<div class="row"><span class="k">Start Date</span><span class="v">' + (fmtDateShort(j.startDate) || '—') + '</span></div>';
+    html += '<div class="row"><span class="k">End Date</span><span class="v">' + (fmtDateShort(j.endDate) || '—') + '</span></div>';
+    html += '</div>';
+
+    html += '<div class="sec"><div class="sec-title">Direct Materials</div>';
+    html += '<div class="row"><span class="k">Job Materials</span><span class="v">' + fmt(+j.jobMaterials || 0) + '</span></div>';
+    html += '<div class="row"><span class="k">Subcontractors</span><span class="v">' + fmt(+j.subcontractors || 0) + '</span></div>';
+    html += '<div class="row"><span class="k">Equipment</span><span class="v">' + fmt(+j.equipment || 0) + '</span></div>';
+    html += '<div class="row"><span class="k">Dumpster</span><span class="v">' + fmt(+j.dumpster || 0) + '</span></div>';
+    html += '<div class="row"><span class="k">Permits</span><span class="v">' + fmt(+j.permits || 0) + '</span></div>';
+    html += '<div class="row total-row"><span>Total Materials</span><span>' + fmt(c.totalMaterials) + '</span></div>';
+    html += '</div>';
+
+    html += '<div class="sec"><div class="sec-title">Labor & Overhead</div>';
+    if (j.month1Index >= 0 && j.month1Index < state.overhead.months.length) {
+      const mLabel = state.overhead.months[j.month1Index] ? state.overhead.months[j.month1Index].label : 'Month 1';
+      html += '<div class="row"><span class="k">' + esc(mLabel) + ' Labor</span><span class="v">' + fmt(+j.month1LaborCosts || 0) + ' · ' + fmtHrs(+j.month1LaborHours || 0) + '</span></div>';
+    }
+    if (j.month2Index >= 0 && j.month2Index < state.overhead.months.length) {
+      const mLabel = state.overhead.months[j.month2Index] ? state.overhead.months[j.month2Index].label : 'Month 2';
+      html += '<div class="row"><span class="k">' + esc(mLabel) + ' Labor</span><span class="v">' + fmt(+j.month2LaborCosts || 0) + ' · ' + fmtHrs(+j.month2LaborHours || 0) + '</span></div>';
+    }
+    html += '<div class="row total-row"><span>Total Labor</span><span>' + fmt(c.totalLabor) + ' · ' + fmtHrs(c.totalHours) + '</span></div>';
+    html += '</div>';
+
+    // Overhead breakdown
+    if (c.overheadAllocation > 0 || (j.month1Index >= 0) || (j.month2Index >= 0)) {
+      html += '<div class="oh-breakdown"><strong>Overhead Allocation</strong>';
+      if (j.month1Index >= 0 && +j.month1LaborHours > 0) {
+        const mLabel = state.overhead.months[j.month1Index] ? state.overhead.months[j.month1Index].label : 'Month 1';
+        if (c.m1.monthTotalHours > 0) {
+          html += '<div class="line">' + esc(mLabel) + ': ' + fmtHrs(+j.month1LaborHours) + ' ÷ ' + fmtHrs(c.m1.monthTotalHours) + ' = ' + fmtPct(c.m1.pct) + ' × ' + fmt(c.m1.avgExpenses) + ' (' + c.m1.avgMonthsUsed + '-mo avg) = <strong>' + fmt(c.m1.allocation) + '</strong></div>';
+        }
+      }
+      if (j.month2Index >= 0 && +j.month2LaborHours > 0) {
+        const mLabel = state.overhead.months[j.month2Index] ? state.overhead.months[j.month2Index].label : 'Month 2';
+        if (c.m2.monthTotalHours > 0) {
+          html += '<div class="line">' + esc(mLabel) + ': ' + fmtHrs(+j.month2LaborHours) + ' ÷ ' + fmtHrs(c.m2.monthTotalHours) + ' = ' + fmtPct(c.m2.pct) + ' × ' + fmt(c.m2.avgExpenses) + ' (' + c.m2.avgMonthsUsed + '-mo avg) = <strong>' + fmt(c.m2.allocation) + '</strong></div>';
+        }
+      }
+      html += '<div class="line total">Total Overhead: ' + fmt(c.overheadAllocation) + '</div>';
+      html += '</div>';
+    }
+
+    if (j.notes) {
+      html += '<div class="sec"><div class="sec-title">Notes</div><div style="font-size:9pt;color:#4a5878;white-space:pre-wrap">' + esc(j.notes) + '</div></div>';
+    }
+    html += '</div>';
+
+    // Right col - Summary
+    html += '<div>';
+    html += '<div class="sec"><div class="sec-title">Summary</div>';
+    html += '<div class="row"><span class="k">Project Price</span><span class="v">' + fmt(+j.projectPrice || 0) + '</span></div>';
+    html += '<div class="row"><span class="k">− Materials</span><span class="v">' + fmt(c.totalMaterials) + '</span></div>';
+    html += '<div class="row"><span class="k">− Labor</span><span class="v">' + fmt(c.totalLabor) + '</span></div>';
+    html += '<div class="row total-row"><span>Gross Profit</span><span class="green">' + fmt(c.grossProfit) + '</span></div>';
+    html += '<div style="font-size:8pt;text-align:right;color:#4a5878;">' + fmtPct(c.grossMargin) + ' gross margin</div>';
+    html += '<div class="row" style="margin-top:6px"><span class="k">− Overhead</span><span class="v">' + fmt(c.overheadAllocation) + '</span></div>';
+    html += '<div class="row"><span class="k">− Subs Surcharge</span><span class="v">' + fmt(c.subsSurcharge) + '</span></div>';
+    html += '</div>';
+    html += '<div class="net-box" style="background:' + (c.netProfit >= 0 ? '#2d6a4f' : '#a83232') + ';"><div class="lbl">Net Profit</div><div class="big">' + fmt(c.netProfit) + '</div><div class="small">' + fmtPct(c.netMargin) + ' margin</div></div>';
+    html += '</div>';
+
+    html += '</div></div>'; // close grid2 and job
+  });
+
+  html += '<div class="footer-note">Report generated ' + todayStr + ' · Kansas City Hardscapes · ' + state.jobs.length + ' ' + (state.jobs.length === 1 ? 'job' : 'jobs') + '</div>';
+  html += '</body></html>';
+
+  // Open in new tab and trigger print
+  const w = window.open('', '_blank');
+  if (!w) {
+    showToast("Please allow popups to generate the PDF");
+    return;
+  }
+  w.document.write(html);
+  w.document.close();
+  showToast("PDF report opened in new tab");
+}
+
+
+function download(content, filename, mime) {
+  const blob = new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 100);
+}
+
+function showToast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  setTimeout(() => t.classList.remove("show"), 2600);
+}
+
+// ===== WIRING =====
+document.querySelectorAll(".tab-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    state.tab = btn.dataset.tab;
+    render();
+  });
+});
+
+document.getElementById("btnNewJob").addEventListener("click", newJob);
+document.getElementById("btnExportCSV").addEventListener("click", exportCSV);
+document.getElementById("btnPublish").addEventListener("click", printPDF);
+
+// ===== INIT =====
+loadState();
+render();
+</script>
+</body>
+</html>
