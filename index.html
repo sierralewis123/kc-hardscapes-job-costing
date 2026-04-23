@@ -155,15 +155,20 @@ footer { text-align: center; padding: 32px; color: var(--ink-soft); font-size: 0
         <h1 class="title" style="font-family: 'Poppins', sans-serif; font-weight: 800;">Kansas City Hardscapes</h1>
         <div class="label-sm" style="margin-top: 6px; letter-spacing: 0.2em;">Job Costing</div>
       </div>
-      <div class="rate-display">
+      <div style="display: flex; align-items: center; gap: 24px;">
+        <div>
+          <div class="label-sm">Year</div>
+          <select id="yearSelector" style="font-family: 'Poppins', sans-serif; font-size: 1.3rem; font-weight: 700; color: var(--rust); border: none; background: transparent; cursor: pointer; padding: 4px 0;"></select>
+        </div>
+        <div class="rate-display">
         <div class="label-sm">Method</div>
         <div class="v" id="ohRate" style="font-size: 1rem;">Actual Monthly Allocation</div>
         <div id="syncStatus" style="font-size: 0.7rem; margin-top: 4px; color: var(--ink-soft); letter-spacing: 0.05em;">Local only</div>
       </div>
+      </div>
     </div>
     <nav class="tabs">
       <button class="tab-btn active" data-tab="dashboard">Dashboard</button>
-      <button class="tab-btn" data-tab="detail">Job Detail</button>
       <button class="tab-btn" data-tab="insights">Insights</button>
       <button class="tab-btn" data-tab="overhead">Overhead</button>
     </nav>
@@ -266,10 +271,43 @@ const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov
 let state = {
   tab: "dashboard",
   jobs: [],
-  overhead: blankOverhead(),
+  overheadByYear: {}, // { "2025": { months: [...] }, "2026": { months: [...] } }
+  overhead: null, // computed getter — points to overheadByYear[selectedYear]
   selectedJobId: null,
+  selectedYear: String(new Date().getFullYear()),
+  insightsYear: String(new Date().getFullYear()), // can be "all" or a year string
   customFeatures: [], // user-added features beyond DEFAULT_FEATURES
 };
+
+// Helper: get overhead for a specific year (creates blank if missing)
+function getOverheadForYear(year) {
+  const y = String(year);
+  if (!state.overheadByYear[y]) {
+    state.overheadByYear[y] = blankOverheadForYear(parseInt(y));
+  }
+  return state.overheadByYear[y];
+}
+
+// Helper: get the currently selected year's overhead
+function currentOverhead() {
+  return getOverheadForYear(state.selectedYear);
+}
+
+// Get all years that have jobs or overhead data
+function getAvailableYears() {
+  const years = new Set();
+  state.jobs.forEach(j => { if (j.year) years.add(String(j.year)); });
+  Object.keys(state.overheadByYear).forEach(y => years.add(y));
+  years.add(String(new Date().getFullYear()));
+  years.add("2025"); // always show 2025
+  return Array.from(years).sort();
+}
+
+// Get jobs filtered by selected year
+function getJobsForYear(year) {
+  const y = String(year);
+  return state.jobs.filter(j => String(j.year) === y);
+}
 
 // Default project features list
 const DEFAULT_FEATURES = [
@@ -292,6 +330,7 @@ function blankJob() {
     customer: "New Customer",
     jobName: "",
     features: [], // array of feature strings
+    year: state.selectedYear, // which year bucket this job belongs to
     date: new Date().toISOString().slice(0, 10),
     startDate: "",
     endDate: "",
@@ -301,15 +340,12 @@ function blankJob() {
     equipment: 0,
     dumpster: 0,
     permits: 0,
-    // Legacy fields for backward compat - hidden in UI
     laborCosts: 0,
     laborHours: 0,
-    // New month-based labor
-    // Note: month index 0 is Dec of previous year, 1=Jan, 2=Feb... so add 1 to calendar month
     month1Index: new Date().getMonth() + 1,
     month1LaborCosts: 0,
     month1LaborHours: 0,
-    month2Index: -1, // -1 means no second month
+    month2Index: -1,
     month2LaborCosts: 0,
     month2LaborHours: 0,
     subsSurchargePct: 0.15,
@@ -317,20 +353,20 @@ function blankJob() {
   };
 }
 
-function blankOverhead() {
-  const year = new Date().getFullYear();
+function blankOverheadForYear(year) {
   const months = [{ label: "Dec " + (year - 1), expenses: 0, directLaborHours: 0 }];
   for (let i = 0; i < 12; i++) {
     months.push({ label: MONTHS[i] + " " + year, expenses: 0, directLaborHours: 0 });
   }
-  return {
-    months: months, // 13 months total: index 0 = previous Dec, indexes 1-12 = current year Jan-Dec
-    manualOverride: false,
-    manualRatePerHour: 50,
-  };
+  return { months: months };
 }
 
-const STORAGE_FEATURES = "ledger_margin_custom_features";
+// Legacy compat — still used by calcOverheadRate which some code calls
+function blankOverhead() {
+  return blankOverheadForYear(new Date().getFullYear());
+}
+
+const STORAGE_OHBYYEAR = "ledger_margin_overhead_by_year";
 
 function loadState() {
   try {
@@ -339,8 +375,6 @@ function loadState() {
       const migrated = Object.assign({ laborHours: 0, laborCosts: 0 }, x);
       if (!Array.isArray(migrated.features)) migrated.features = [];
       if (!("month1Index" in migrated)) {
-        // Infer start month from startDate or current month
-        // Note: month index 0 is Dec of previous year, so add 1 to calendar month
         let m = new Date().getMonth() + 1;
         if (migrated.startDate) {
           const d = new Date(migrated.startDate + "T00:00:00");
@@ -353,6 +387,16 @@ function loadState() {
         migrated.month2LaborCosts = 0;
         migrated.month2LaborHours = 0;
       }
+      // Migrate: assign year from startDate if missing
+      if (!migrated.year) {
+        if (migrated.startDate) {
+          const d = new Date(migrated.startDate + "T00:00:00");
+          if (!isNaN(d)) migrated.year = String(d.getFullYear());
+          else migrated.year = String(new Date().getFullYear());
+        } else {
+          migrated.year = String(new Date().getFullYear());
+        }
+      }
       return migrated;
     });
   } catch(e) {}
@@ -360,39 +404,58 @@ function loadState() {
     const cf = localStorage.getItem(STORAGE_FEATURES);
     if (cf) state.customFeatures = JSON.parse(cf);
   } catch(e) {}
+
+  // Load year-based overhead
   try {
-    const o = localStorage.getItem(STORAGE_OH);
-    if (o) {
-      const parsed = JSON.parse(o);
-      if (parsed.months && parsed.months[0] && !("directLaborHours" in parsed.months[0])) {
-        parsed.months = parsed.months.map(m => ({ label: m.label, expenses: m.expenses || 0, directLaborHours: 0 }));
-      }
-      if (!("manualRatePerHour" in parsed)) parsed.manualRatePerHour = 50;
-      // Migrate: if only 12 months stored (no Dec of previous year), prepend it
-      // and shift any existing job month indexes up by 1
-      if (parsed.months && parsed.months.length === 12) {
-        const year = new Date().getFullYear();
-        parsed.months.unshift({ label: "Dec " + (year - 1), expenses: 0, directLaborHours: 0 });
-        state.jobs = state.jobs.map(j => {
-          const updated = Object.assign({}, j);
-          if (updated.month1Index != null && updated.month1Index >= 0) updated.month1Index += 1;
-          if (updated.month2Index != null && updated.month2Index >= 0) updated.month2Index += 1;
-          return updated;
-        });
-      }
-      state.overhead = parsed;
+    const oby = localStorage.getItem(STORAGE_OHBYYEAR);
+    if (oby) {
+      state.overheadByYear = JSON.parse(oby);
     }
   } catch(e) {}
+
+  // Migrate old single-overhead format to year-based
+  try {
+    const o = localStorage.getItem(STORAGE_OH);
+    if (o && Object.keys(state.overheadByYear).length === 0) {
+      const parsed = JSON.parse(o);
+      if (parsed && parsed.months) {
+        if (parsed.months[0] && !("directLaborHours" in parsed.months[0])) {
+          parsed.months = parsed.months.map(m => ({ label: m.label, expenses: m.expenses || 0, directLaborHours: 0 }));
+        }
+        if (parsed.months.length === 12) {
+          const year = new Date().getFullYear();
+          parsed.months.unshift({ label: "Dec " + (year - 1), expenses: 0, directLaborHours: 0 });
+          state.jobs = state.jobs.map(j => {
+            const updated = Object.assign({}, j);
+            if (updated.month1Index != null && updated.month1Index >= 0) updated.month1Index += 1;
+            if (updated.month2Index != null && updated.month2Index >= 0) updated.month2Index += 1;
+            return updated;
+          });
+        }
+        // Put old overhead into current year bucket
+        state.overheadByYear[String(new Date().getFullYear())] = { months: parsed.months };
+      }
+    }
+  } catch(e) {}
+
+  // Ensure at least 2025 and current year exist
+  getOverheadForYear(2025);
+  getOverheadForYear(new Date().getFullYear());
+
+  // Set state.overhead as alias for backward compat
+  state.overhead = currentOverhead();
 }
 
 function saveState() {
   try {
     localStorage.setItem(STORAGE_JOBS, JSON.stringify(state.jobs));
-    localStorage.setItem(STORAGE_OH, JSON.stringify(state.overhead));
+    localStorage.setItem(STORAGE_OHBYYEAR, JSON.stringify(state.overheadByYear));
     localStorage.setItem(STORAGE_FEATURES, JSON.stringify(state.customFeatures));
   } catch(e) {
     showToast("Could not save - browser storage full or blocked");
   }
+  // Keep state.overhead in sync
+  state.overhead = currentOverhead();
   // Push to Supabase in background
   if (syncEnabled) syncToSupabase();
 }
@@ -404,6 +467,7 @@ function jobToRow(j) {
     id: j.id,
     customer: j.customer || "",
     features: j.features || [],
+    year: j.year || String(new Date().getFullYear()),
     start_date: j.startDate || null,
     end_date: j.endDate || null,
     project_price: +j.projectPrice || 0,
@@ -431,6 +495,7 @@ function rowToJob(r) {
     customer: r.customer || "",
     jobName: "", // legacy
     features: r.features || [],
+    year: r.year || String(new Date().getFullYear()),
     date: r.start_date || "",
     startDate: r.start_date || "",
     endDate: r.end_date || "",
@@ -470,10 +535,10 @@ function syncToSupabase() {
         if (jErr) throw jErr;
       }
 
-      // Upsert overhead (single row, id=1)
+      // Upsert overhead (single row, id=1 — stores all years as JSON)
       const { error: oErr } = await sb.from("overhead").upsert({
         id: 1,
-        months: state.overhead.months,
+        months: state.overheadByYear,
         updated_at: new Date().toISOString(),
       }, { onConflict: "id" });
       if (oErr) throw oErr;
@@ -521,8 +586,19 @@ async function loadFromSupabase() {
 
     const { data: ohData, error: oErr } = await sb.from("overhead").select("*").eq("id", 1).maybeSingle();
     if (oErr) throw oErr;
-    if (ohData && ohData.months && Array.isArray(ohData.months) && ohData.months.length > 0) {
-      state.overhead.months = ohData.months;
+    if (ohData && ohData.months) {
+      // Check if it's the new format (object keyed by year) or old format (array of months)
+      if (Array.isArray(ohData.months)) {
+        // Old format — migrate: put it in current year
+        state.overheadByYear[String(new Date().getFullYear())] = { months: ohData.months };
+      } else {
+        // New format — object keyed by year
+        state.overheadByYear = ohData.months;
+      }
+      // Ensure 2025 and current year exist
+      getOverheadForYear(2025);
+      getOverheadForYear(new Date().getFullYear());
+      state.overhead = currentOverhead();
     }
 
     const { data: cfData, error: fErr } = await sb.from("custom_features").select("*").eq("id", 1).maybeSingle();
@@ -534,7 +610,7 @@ async function loadFromSupabase() {
     // Persist to local cache
     try {
       localStorage.setItem(STORAGE_JOBS, JSON.stringify(state.jobs));
-      localStorage.setItem(STORAGE_OH, JSON.stringify(state.overhead));
+      localStorage.setItem(STORAGE_OHBYYEAR, JSON.stringify(state.overheadByYear));
       localStorage.setItem(STORAGE_FEATURES, JSON.stringify(state.customFeatures));
     } catch(e) {}
 
@@ -627,8 +703,10 @@ function calcJob(j, _unused) {
   const totalHours = (+j.month1LaborHours||0) + (+j.month2LaborHours||0);
   const gp = (+j.projectPrice||0) - m - totalLabor;
 
-  const m1 = calcMonthOverhead(+j.month1LaborHours||0, j.month1Index, state.overhead);
-  const m2 = calcMonthOverhead(+j.month2LaborHours||0, j.month2Index, state.overhead);
+  // Use the overhead data for this job's year
+  const oh_data = getOverheadForYear(j.year || state.selectedYear);
+  const m1 = calcMonthOverhead(+j.month1LaborHours||0, j.month1Index, oh_data);
+  const m2 = calcMonthOverhead(+j.month2LaborHours||0, j.month2Index, oh_data);
   const oh = m1.allocation + m2.allocation;
 
   const ss = (+j.subcontractors||0) * (+j.subsSurchargePct||0);
@@ -666,6 +744,17 @@ function calcOverheadRate() {
 function render() {
   const rate = calcOverheadRate();
 
+  // Keep overhead alias in sync
+  state.overhead = currentOverhead();
+
+  // Populate year selector
+  const yearSel = document.getElementById("yearSelector");
+  if (yearSel) {
+    const years = getAvailableYears();
+    const curVal = yearSel.value;
+    yearSel.innerHTML = years.map(y => '<option value="' + y + '"' + (y === state.selectedYear ? ' selected' : '') + '>' + y + '</option>').join("");
+  }
+
   // Header overhead rate — static label now, no update needed
 
   // Tab visibility
@@ -676,9 +765,12 @@ function render() {
     btn.classList.toggle("active", btn.dataset.tab === state.tab);
   });
 
-  // Portfolio totals
+  // Get jobs for selected year
+  const yearJobs = getJobsForYear(state.selectedYear);
+
+  // Portfolio totals (filtered by year)
   let rev = 0, gross = 0, net = 0;
-  state.jobs.forEach(j => {
+  yearJobs.forEach(j => {
     const c = calcJob(j, rate);
     rev += +j.projectPrice || 0;
     gross += c.grossProfit;
@@ -694,7 +786,7 @@ function render() {
   totMargin.textContent = fmtPct(margin);
   totMargin.className = "big " + (margin >= 0 ? "green" : "red");
 
-  document.getElementById("jobCount").textContent = "(" + state.jobs.length + ")";
+  document.getElementById("jobCount").textContent = "(" + yearJobs.length + ")";
 
   // Jobs table
   const table = document.getElementById("jobsTable");
@@ -708,10 +800,10 @@ function render() {
     + '<div class="label-sm tr">Net</div>'
     + '<div></div>'
     + '</div>';
-  if (state.jobs.length === 0) {
-    table.innerHTML = header + '<div class="empty-state"><div class="icon">🔨</div><p class="serif" style="font-size: 1.1rem;">No jobs yet. Start by adding your first one.</p></div>';
+  if (yearJobs.length === 0) {
+    table.innerHTML = header + '<div class="empty-state"><div class="icon">🔨</div><p class="serif" style="font-size: 1.1rem;">No jobs for ' + esc(state.selectedYear) + ' yet. Click + New Job to add one.</p></div>';
   } else {
-    table.innerHTML = header + state.jobs.map(j => {
+    table.innerHTML = header + yearJobs.map(j => {
       const c = calcJob(j, rate);
       const price = +j.projectPrice || 0;
       const matPct = price > 0 ? c.totalMaterials / price : 0;
@@ -749,7 +841,7 @@ function render() {
   if (state.tab === "overhead") renderOverhead(rate);
 
   // Footer
-  document.getElementById("footerText").textContent = "Saved automatically · " + state.jobs.length + " " + (state.jobs.length === 1 ? "job" : "jobs") + " on file";
+  document.getElementById("footerText").textContent = "Saved automatically · " + yearJobs.length + " " + (yearJobs.length === 1 ? "job" : "jobs") + " in " + state.selectedYear;
 }
 
 function renderDetail(rate) {
@@ -778,20 +870,23 @@ function renderDetail(rate) {
   const totalHours = c.totalHours;
   const effectiveRate = totalHours > 0 ? c.totalLabor / totalHours : 0;
 
+  // Use overhead for the JOB's year, not the selected year
+  const jobOH = getOverheadForYear(job.year || state.selectedYear);
+
   // Build month dropdown options
   const monthOptions = (selected) => {
     let opts = '<option value="-1">— None —</option>';
-    for (let i = 0; i < state.overhead.months.length; i++) {
+    for (let i = 0; i < jobOH.months.length; i++) {
       const sel = i === selected ? ' selected' : '';
-      opts += '<option value="' + i + '"' + sel + '>' + state.overhead.months[i].label + '</option>';
+      opts += '<option value="' + i + '"' + sel + '>' + jobOH.months[i].label + '</option>';
     }
     return opts;
   };
 
   // Build an overhead note line for one month
   const ohNoteLine = (mres, jobHrs, monthIdx) => {
-    if (monthIdx < 0 || monthIdx >= state.overhead.months.length) return '';
-    const label = state.overhead.months[monthIdx].label;
+    if (monthIdx < 0 || monthIdx >= jobOH.months.length) return '';
+    const label = jobOH.months[monthIdx].label;
     if (jobHrs <= 0) return '<div style="font-size:0.82rem;color:var(--ink-soft);">' + esc(label) + ': no hours entered</div>';
     if (mres.monthTotalHours <= 0) return '<div style="font-size:0.82rem;color:var(--danger);">' + esc(label) + ': enter total company hours for this month on the Overhead tab</div>';
     return '<div style="font-size:0.82rem;color:var(--ink-soft);">' + esc(label) + ': <span class="mono">' + fmtHrs(jobHrs) + ' ÷ ' + fmtHrs(mres.monthTotalHours) + ' = ' + fmtPct(mres.pct) + '</span> × <span class="mono">' + fmt(mres.avgExpenses) + '</span> <span style="font-size:0.72rem">(' + mres.avgMonthsUsed + '-mo avg)</span> = <span class="mono" style="color:var(--ink);font-weight:600;">' + fmt(mres.allocation) + '</span></div>';
@@ -1016,8 +1111,9 @@ function updateDetailSummary(job, rate) {
       if (ohNote) {
         let html = '<div style="font-weight: 600; color: var(--ink); margin-bottom: 6px;">Overhead Allocation</div>';
         const ohNoteLine = (mres, jobHrs, monthIdx) => {
-          if (monthIdx < 0 || monthIdx >= state.overhead.months.length) return '';
-          const label = state.overhead.months[monthIdx].label;
+          const jOH = getOverheadForYear(job.year || state.selectedYear);
+          if (monthIdx < 0 || monthIdx >= jOH.months.length) return '';
+          const label = jOH.months[monthIdx].label;
           if (jobHrs <= 0) return '<div style="font-size:0.82rem;color:var(--ink-soft);">' + esc(label) + ': no hours entered</div>';
           if (mres.monthTotalHours <= 0) return '<div style="font-size:0.82rem;color:var(--danger);">' + esc(label) + ': enter total company hours for this month on the Overhead tab</div>';
           return '<div style="font-size:0.82rem;color:var(--ink-soft);">' + esc(label) + ': <span class="mono">' + fmtHrs(jobHrs) + ' ÷ ' + fmtHrs(mres.monthTotalHours) + ' = ' + fmtPct(mres.pct) + '</span> × <span class="mono">' + fmt(mres.avgExpenses) + '</span> <span style="font-size:0.72rem">(' + mres.avgMonthsUsed + '-mo avg)</span> = <span class="mono" style="color:var(--ink);font-weight:600;">' + fmt(mres.allocation) + '</span></div>';
@@ -1058,7 +1154,7 @@ function featureChipsHTML(job) {
 }
 
 function renderOverhead(rate) {
-  const o = state.overhead;
+  const o = currentOverhead();
 
   const rows = document.getElementById("monthRows");
   rows.innerHTML = o.months.map((m, i) =>
@@ -1091,11 +1187,9 @@ function getAllFeatures() {
   return Array.from(set);
 }
 
-function aggregateByFeature() {
-  // For each feature, accumulate revenue, net profit, and job count
-  // (Jobs with multiple features count toward each feature.)
+function aggregateByFeature(jobs) {
   const map = {};
-  state.jobs.forEach(j => {
+  jobs.forEach(j => {
     const c = calcJob(j, 0);
     (j.features || []).forEach(f => {
       if (!map[f]) map[f] = { feature: f, revenue: 0, net: 0, gross: 0, count: 0 };
@@ -1112,13 +1206,10 @@ function aggregateByFeature() {
   }));
 }
 
-function aggregateByFeatureByMonth() {
-  // For each feature, per-month avg margin (using job's start month as the bucket)
-  // Returns: { feature: { "2026-03": { revenue, net, count }, ... } }
+function aggregateByFeatureByMonth(jobs) {
   const map = {};
-  state.jobs.forEach(j => {
+  jobs.forEach(j => {
     const c = calcJob(j, 0);
-    // bucket by start month
     let bucket = "Unknown";
     if (j.startDate) {
       const d = new Date(j.startDate + "T00:00:00");
@@ -1340,20 +1431,37 @@ function svgRevenueMix(data) {
 
 function renderInsights() {
   const container = document.getElementById("insightsContent");
-  const agg = aggregateByFeature();
-  const trendMap = aggregateByFeatureByMonth();
 
-  if (state.jobs.length === 0) {
-    container.innerHTML = '<div class="card" style="text-align:center;padding:60px 20px;"><div style="font-size:2rem;opacity:0.4;margin-bottom:8px;">📊</div><p class="serif" style="font-size:1.2rem;">No jobs yet</p><p style="color:var(--ink-soft);">Add jobs with project features to see profitability insights.</p></div>';
+  // Determine which jobs to show
+  const years = getAvailableYears();
+  const iy = state.insightsYear; // "all" or a year string
+  const insightsJobs = iy === "all" ? state.jobs : getJobsForYear(iy);
+
+  // Year toggle buttons
+  let html = '<div style="margin-bottom: 20px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">';
+  html += '<span class="label-sm" style="margin-right: 4px;">Show:</span>';
+  html += '<button class="feature-chip' + (iy === "all" ? ' active' : '') + '" data-iy="all">All Years</button>';
+  years.forEach(y => {
+    html += '<button class="feature-chip' + (iy === y ? ' active' : '') + '" data-iy="' + y + '">' + y + '</button>';
+  });
+  html += '</div>';
+
+  const agg = aggregateByFeature(insightsJobs);
+  const trendMap = aggregateByFeatureByMonth(insightsJobs);
+
+  if (insightsJobs.length === 0) {
+    html += '<div class="card" style="text-align:center;padding:60px 20px;"><p class="serif" style="font-size:1.2rem;">No jobs for ' + (iy === "all" ? "any year" : iy) + '</p><p style="color:var(--ink-soft);">Add jobs with project features to see profitability insights.</p></div>';
+    container.innerHTML = html;
+    wireInsightsToggle(container);
     return;
   }
 
   if (agg.length === 0) {
-    container.innerHTML = '<div class="card" style="text-align:center;padding:60px 20px;"><div style="font-size:2rem;opacity:0.4;margin-bottom:8px;">🏷️</div><p class="serif" style="font-size:1.2rem;">No project features tagged yet</p><p style="color:var(--ink-soft);">Open any job and select features (Concrete Patio, Retaining Wall, etc.) to see insights here.</p></div>';
+    html += '<div class="card" style="text-align:center;padding:60px 20px;"><p class="serif" style="font-size:1.2rem;">No project features tagged yet</p><p style="color:var(--ink-soft);">Open any job and select features to see insights here.</p></div>';
+    container.innerHTML = html;
+    wireInsightsToggle(container);
     return;
   }
-
-  let html = '';
 
   // Chart 1: Avg margin by feature
   html += '<div class="card"><h2 class="section-h">Average Net Margin by Feature</h2>';
@@ -1374,6 +1482,16 @@ function renderInsights() {
   html += '</div>';
 
   container.innerHTML = html;
+  wireInsightsToggle(container);
+}
+
+function wireInsightsToggle(container) {
+  container.querySelectorAll("[data-iy]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      state.insightsYear = btn.dataset.iy;
+      renderInsights();
+    });
+  });
 }
 
 
@@ -1389,26 +1507,29 @@ function newJob() {
 
 function exportCSV() {
   const rate = calcOverheadRate();
+  const yearJobs = getJobsForYear(state.selectedYear);
   const headers = ["Customer","Features","Start Date","End Date","Project Price","Materials","M1 Month","M1 Labor $","M1 Labor Hrs","M1 Overhead","M2 Month","M2 Labor $","M2 Labor Hrs","M2 Overhead","Total Labor","Total Hrs","Gross Profit","Total Overhead","Subs Surcharge","Net Profit","Margin %"];
-  const rows = state.jobs.map(j => {
+  const rows = yearJobs.map(j => {
     const c = calcJob(j, rate);
-    const m1Label = (j.month1Index >= 0 && j.month1Index < state.overhead.months.length) ? state.overhead.months[j.month1Index].label : "";
-    const m2Label = (j.month2Index >= 0 && j.month2Index < state.overhead.months.length) ? state.overhead.months[j.month2Index].label : "";
+    const oh = getOverheadForYear(j.year || state.selectedYear);
+    const m1Label = (j.month1Index >= 0 && j.month1Index < oh.months.length) ? oh.months[j.month1Index].label : "";
+    const m2Label = (j.month2Index >= 0 && j.month2Index < oh.months.length) ? oh.months[j.month2Index].label : "";
     const features = (j.features || []).join("; ");
     return [j.customer, features, j.startDate || j.date || "", j.endDate || "", j.projectPrice, c.totalMaterials, m1Label, j.month1LaborCosts||0, j.month1LaborHours||0, c.m1.allocation, m2Label, j.month2LaborCosts||0, j.month2LaborHours||0, c.m2.allocation, c.totalLabor, c.totalHours, c.grossProfit, c.overheadAllocation, c.subsSurcharge, c.netProfit, (c.netMargin*100).toFixed(2) + "%"];
   });
   const csv = [headers].concat(rows).map(r => r.map(v => '"' + String(v).replace(/"/g,'""') + '"').join(",")).join("\n");
-  download(csv, "job-costs.csv", "text/csv");
+  download(csv, "job-costs-" + state.selectedYear + ".csv", "text/csv");
   showToast("CSV downloaded");
 }
 
 function printPDF() {
   const rate = calcOverheadRate();
+  const pdfJobs = getJobsForYear(state.selectedYear);
   const today = new Date();
   const todayStr = today.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
 
   // Build print-friendly HTML
-  let html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Kansas City Hardscapes — Job Costing Report</title>';
+  let html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Kansas City Hardscapes — ' + state.selectedYear + ' Job Costing Report</title>';
   html += '<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&display=swap" rel="stylesheet">';
   html += '<style>';
   html += '@page { size: letter; margin: 0.5in; }';
@@ -1459,11 +1580,11 @@ function printPDF() {
   html += '<div class="print-bar no-print">Ready to save as PDF. Click the button → in the print dialog, choose "Save as PDF" as the destination. <button onclick="window.print()">Open Print Dialog</button></div>';
 
   // Cover
-  html += '<div class="cover"><h1>Kansas City Hardscapes</h1><div class="sub">Job Costing Report</div><div class="date">' + todayStr + '</div></div>';
+  html += '<div class="cover"><h1>Kansas City Hardscapes</h1><div class="sub">' + state.selectedYear + ' Job Costing Report</div><div class="date">' + todayStr + '</div></div>';
 
   // Portfolio totals
   let rev = 0, gross = 0, net = 0, oh = 0;
-  state.jobs.forEach(j => {
+  pdfJobs.forEach(j => {
     const c = calcJob(j, rate);
     rev += +j.projectPrice || 0;
     gross += c.grossProfit;
@@ -1481,9 +1602,9 @@ function printPDF() {
   html += '</div>';
 
   // Jobs list table
-  html += '<h2>All Jobs (' + state.jobs.length + ')</h2>';
+  html += '<h2>All Jobs (' + pdfJobs.length + ')</h2>';
   html += '<table class="jobs-list"><thead><tr><th>Customer / Job</th><th>Dates</th><th class="tr">Price</th><th class="tr">Hours</th><th class="tr">Gross</th><th class="tr">Net</th><th class="tr">Margin</th></tr></thead><tbody>';
-  state.jobs.forEach(j => {
+  pdfJobs.forEach(j => {
     const c = calcJob(j, rate);
     const npc = c.netProfit >= 0 ? 'green' : 'red';
     html += '<tr>';
@@ -1499,7 +1620,8 @@ function printPDF() {
   html += '</tbody></table>';
 
   // Per-job detail pages
-  state.jobs.forEach((j, idx) => {
+  pdfJobs.forEach((j, idx) => {
+    const pdfOH = getOverheadForYear(j.year || state.selectedYear);
     const c = calcJob(j, rate);
     html += '<div class="job">';
     html += '<h2>' + esc(j.customer || 'Untitled') + '</h2>';
@@ -1524,12 +1646,12 @@ function printPDF() {
     html += '</div>';
 
     html += '<div class="sec"><div class="sec-title">Labor & Overhead</div>';
-    if (j.month1Index >= 0 && j.month1Index < state.overhead.months.length) {
-      const mLabel = state.overhead.months[j.month1Index] ? state.overhead.months[j.month1Index].label : 'Month 1';
+    if (j.month1Index >= 0 && j.month1Index < pdfOH.months.length) {
+      const mLabel = pdfOH.months[j.month1Index] ? pdfOH.months[j.month1Index].label : 'Month 1';
       html += '<div class="row"><span class="k">' + esc(mLabel) + ' Labor</span><span class="v">' + fmt(+j.month1LaborCosts || 0) + ' · ' + fmtHrs(+j.month1LaborHours || 0) + '</span></div>';
     }
-    if (j.month2Index >= 0 && j.month2Index < state.overhead.months.length) {
-      const mLabel = state.overhead.months[j.month2Index] ? state.overhead.months[j.month2Index].label : 'Month 2';
+    if (j.month2Index >= 0 && j.month2Index < pdfOH.months.length) {
+      const mLabel = pdfOH.months[j.month2Index] ? pdfOH.months[j.month2Index].label : 'Month 2';
       html += '<div class="row"><span class="k">' + esc(mLabel) + ' Labor</span><span class="v">' + fmt(+j.month2LaborCosts || 0) + ' · ' + fmtHrs(+j.month2LaborHours || 0) + '</span></div>';
     }
     html += '<div class="row total-row"><span>Total Labor</span><span>' + fmt(c.totalLabor) + ' · ' + fmtHrs(c.totalHours) + '</span></div>';
@@ -1539,13 +1661,13 @@ function printPDF() {
     if (c.overheadAllocation > 0 || (j.month1Index >= 0) || (j.month2Index >= 0)) {
       html += '<div class="oh-breakdown"><strong>Overhead Allocation</strong>';
       if (j.month1Index >= 0 && +j.month1LaborHours > 0) {
-        const mLabel = state.overhead.months[j.month1Index] ? state.overhead.months[j.month1Index].label : 'Month 1';
+        const mLabel = pdfOH.months[j.month1Index] ? pdfOH.months[j.month1Index].label : 'Month 1';
         if (c.m1.monthTotalHours > 0) {
           html += '<div class="line">' + esc(mLabel) + ': ' + fmtHrs(+j.month1LaborHours) + ' ÷ ' + fmtHrs(c.m1.monthTotalHours) + ' = ' + fmtPct(c.m1.pct) + ' × ' + fmt(c.m1.avgExpenses) + ' (' + c.m1.avgMonthsUsed + '-mo avg) = <strong>' + fmt(c.m1.allocation) + '</strong></div>';
         }
       }
       if (j.month2Index >= 0 && +j.month2LaborHours > 0) {
-        const mLabel = state.overhead.months[j.month2Index] ? state.overhead.months[j.month2Index].label : 'Month 2';
+        const mLabel = pdfOH.months[j.month2Index] ? pdfOH.months[j.month2Index].label : 'Month 2';
         if (c.m2.monthTotalHours > 0) {
           html += '<div class="line">' + esc(mLabel) + ': ' + fmtHrs(+j.month2LaborHours) + ' ÷ ' + fmtHrs(c.m2.monthTotalHours) + ' = ' + fmtPct(c.m2.pct) + ' × ' + fmt(c.m2.avgExpenses) + ' (' + c.m2.avgMonthsUsed + '-mo avg) = <strong>' + fmt(c.m2.allocation) + '</strong></div>';
         }
@@ -1576,7 +1698,7 @@ function printPDF() {
     html += '</div></div>'; // close grid2 and job
   });
 
-  html += '<div class="footer-note">Report generated ' + todayStr + ' · Kansas City Hardscapes · ' + state.jobs.length + ' ' + (state.jobs.length === 1 ? 'job' : 'jobs') + '</div>';
+  html += '<div class="footer-note">Report generated ' + todayStr + ' · Kansas City Hardscapes · ' + pdfJobs.length + ' ' + (pdfJobs.length === 1 ? 'job' : 'jobs') + '</div>';
   html += '</body></html>';
 
   // Open in new tab and trigger print
@@ -1621,6 +1743,12 @@ document.querySelectorAll(".tab-btn").forEach(btn => {
 document.getElementById("btnNewJob").addEventListener("click", newJob);
 document.getElementById("btnExportCSV").addEventListener("click", exportCSV);
 document.getElementById("btnPublish").addEventListener("click", printPDF);
+
+document.getElementById("yearSelector").addEventListener("change", e => {
+  state.selectedYear = e.target.value;
+  state.overhead = currentOverhead();
+  render();
+});
 
 // ===== INIT =====
 loadState(); // load local cache first for instant render
