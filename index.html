@@ -288,6 +288,50 @@ function getOverheadForYear(year) {
   return state.overheadByYear[y];
 }
 
+// Determine which year a month index belongs to, relative to a job's base year
+// Month indexes 0-12 = the job's base year (index 0 = Dec of prior year, 1-12 = Jan-Dec)
+// Month indexes 100+ = the next year (100 = Dec of base year, 101-112 = Jan-Dec of next year)
+function getYearForMonthIndex(monthIndex, baseYear) {
+  baseYear = parseInt(baseYear);
+  if (monthIndex >= 100) {
+    // Next year's overhead
+    const idx = monthIndex - 100;
+    if (idx === 0) return baseYear; // Dec of base year
+    return baseYear + 1;
+  }
+  // Current year's overhead
+  if (monthIndex === 0) return baseYear - 1; // Dec of prior year
+  return baseYear;
+}
+
+// Auto-assign job year based on which year has more labor hours
+function autoAssignJobYear(job) {
+  const baseYear = parseInt(job.year) || parseInt(state.selectedYear);
+  const m1Hrs = +job.month1LaborHours || 0;
+  const m2Hrs = +job.month2LaborHours || 0;
+
+  // Figure out which year each month's hours belong to
+  const m1Year = (job.month1Index >= 0) ? getYearForMonthIndex(job.month1Index, baseYear) : baseYear;
+  const m2Year = (job.month2Index >= 0) ? getYearForMonthIndex(job.month2Index, baseYear) : baseYear;
+
+  // Tally hours per year
+  const yearHours = {};
+  if (m1Hrs > 0) yearHours[m1Year] = (yearHours[m1Year] || 0) + m1Hrs;
+  if (m2Hrs > 0) yearHours[m2Year] = (yearHours[m2Year] || 0) + m2Hrs;
+
+  // Pick the year with the most hours
+  let bestYear = String(baseYear);
+  let bestHrs = 0;
+  for (const [yr, hrs] of Object.entries(yearHours)) {
+    if (hrs > bestHrs) {
+      bestHrs = hrs;
+      bestYear = String(yr);
+    }
+  }
+
+  return bestYear;
+}
+
 // Helper: get the currently selected year's overhead
 function currentOverhead() {
   return getOverheadForYear(state.selectedYear);
@@ -871,14 +915,26 @@ function renderDetail(rate) {
   const effectiveRate = totalHours > 0 ? c.totalLabor / totalHours : 0;
 
   // Use overhead for the JOB's year, not the selected year
-  const jobOH = getOverheadForYear(job.year || state.selectedYear);
+  const jobYear = parseInt(job.year) || parseInt(state.selectedYear);
+  const jobOH = getOverheadForYear(jobYear);
+  const nextOH = getOverheadForYear(jobYear + 1);
 
-  // Build month dropdown options
-  const monthOptions = (selected) => {
+  // Build month dropdown options — show current year's months + next year's months for cross-year jobs
+  const monthOptions = (selected, isMonth2) => {
     let opts = '<option value="-1">— None —</option>';
+    // Current year months
     for (let i = 0; i < jobOH.months.length; i++) {
-      const sel = i === selected ? ' selected' : '';
+      const sel = (i === selected && !(selected >= 100)) ? ' selected' : '';
       opts += '<option value="' + i + '"' + sel + '>' + jobOH.months[i].label + '</option>';
+    }
+    // Next year months (for Month 2 cross-year jobs) — use 100+ offset to distinguish
+    if (isMonth2) {
+      opts += '<option disabled>── ' + (jobYear + 1) + ' ──</option>';
+      for (let i = 0; i < nextOH.months.length; i++) {
+        const val = 100 + i; // offset to distinguish from current year
+        const sel = val === selected ? ' selected' : '';
+        opts += '<option value="' + val + '"' + sel + '>' + nextOH.months[i].label + '</option>';
+      }
     }
     return opts;
   };
@@ -921,12 +977,12 @@ function renderDetail(rate) {
 
       + '<div class="card"><h2 class="section-h">Labor &amp; Overhead</h2>'
         + '<div style="margin-bottom: 16px;"><div class="label-sm" style="margin-bottom: 8px;">Month 1</div><div class="grid grid-3">'
-          + '<div class="field"><div class="label-sm">Month</div><select data-jf="month1Index">' + monthOptions(job.month1Index) + '</select></div>'
+          + '<div class="field"><div class="label-sm">Month</div><select data-jf="month1Index">' + monthOptions(job.month1Index, false) + '</select></div>'
           + numField("month1LaborCosts", "Labor Costs ($)", job.month1LaborCosts)
           + numField("month1LaborHours", "Labor Hours", job.month1LaborHours, "", "hrs")
         + '</div></div>'
         + '<div style="margin-bottom: 16px;"><div class="label-sm" style="margin-bottom: 8px;">Month 2 <span style="text-transform: none; letter-spacing: 0; color: var(--ink-soft); font-weight: 400;">(optional — leave blank for single-month jobs)</span></div><div class="grid grid-3">'
-          + '<div class="field"><div class="label-sm">Month</div><select data-jf="month2Index">' + monthOptions(job.month2Index) + '</select></div>'
+          + '<div class="field"><div class="label-sm">Month</div><select data-jf="month2Index">' + monthOptions(job.month2Index, true) + '</select></div>'
           + numField("month2LaborCosts", "Labor Costs ($)", job.month2LaborCosts)
           + numField("month2LaborHours", "Labor Hours", job.month2LaborHours, "", "hrs")
         + '</div></div>'
@@ -966,6 +1022,12 @@ function renderDetail(rate) {
       else if (key === "month1Index" || key === "month2Index") val = parseInt(val);
       else if (["projectPrice","jobMaterials","subcontractors","equipment","dumpster","permits","month1LaborCosts","month1LaborHours","month2LaborCosts","month2LaborHours"].includes(key)) val = parseFloat(val) || 0;
       job[key] = val;
+
+      // Auto-assign year based on which year has more labor hours
+      if (["month1Index","month2Index","month1LaborHours","month2LaborHours"].includes(key)) {
+        job.year = autoAssignJobYear(job);
+      }
+
       saveState();
       updateDetailSummary(job, calcOverheadRate());
     };
@@ -1765,4 +1827,3 @@ if (initSupabase()) {
 </script>
 </body>
 </html>
-
