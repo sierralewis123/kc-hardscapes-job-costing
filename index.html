@@ -52,7 +52,10 @@ main { max-width: 1280px; margin: 0 auto; padding: 32px; }
   .detail-grid { grid-template-columns: 1fr; }
   .job-grid { grid-template-columns: 1fr 1fr !important; }
   .job-header { display: none !important; }
+  .charts-row { grid-template-columns: 1fr !important; }
 }
+
+.charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 
 .card { background: white; border: 1px solid var(--line); padding: 24px; position: relative; margin-bottom: 24px; }
 .card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--rust); }
@@ -1302,7 +1305,7 @@ function svgBarChart(data, valueKey, formatFn, options) {
     return '<div style="padding:40px;text-align:center;color:var(--ink-soft);font-style:italic;">No data yet — add features to your jobs to see this chart.</div>';
   }
   const sorted = [...data].sort((a, b) => b[valueKey] - a[valueKey]);
-  const W = 700, rowH = 36, padL = 160, padR = 120, padT = 10, padB = 10;
+  const W = 700, rowH = 36, padL = 140, padR = 100, padT = 10, padB = 10;
   const H = padT + padB + sorted.length * rowH;
   const maxVal = Math.max(...sorted.map(d => Math.abs(d[valueKey])), 0.0001);
   const barAreaW = W - padL - padR;
@@ -1313,15 +1316,21 @@ function svgBarChart(data, valueKey, formatFn, options) {
     const y = padT + i * rowH;
     const val = d[valueKey];
     const barW = (Math.abs(val) / maxVal) * barAreaW;
-    const color = val >= 0 ? "#1e3a6f" : "#a83232";
+    let color;
+    if (options.colorByMargin) {
+      // 3-tier: green >=10%, gold 0.1-9.9%, red <=0%
+      color = val >= 0.10 ? "#2d6a4f" : (val > 0 ? "#b8860b" : "#a83232");
+    } else {
+      color = val >= 0 ? "#1e3a6f" : "#a83232";
+    }
     // Label
-    svg += '<text x="' + (padL - 10) + '" y="' + (y + rowH/2 + 4) + '" text-anchor="end" font-size="13" fill="#0b1a33" font-weight="600">' + esc(d.feature) + '</text>';
+    svg += '<text x="' + (padL - 10) + '" y="' + (y + rowH/2 + 4) + '" text-anchor="end" font-size="12" fill="#0b1a33" font-weight="600">' + esc(d.feature) + '</text>';
     // Count
     svg += '<text x="' + (padL - 10) + '" y="' + (y + rowH/2 + 17) + '" text-anchor="end" font-size="9" fill="#4a5878">' + d.count + ' ' + (d.count === 1 ? 'job' : 'jobs') + '</text>';
     // Bar
     svg += '<rect x="' + padL + '" y="' + (y + 8) + '" width="' + barW + '" height="' + (rowH - 16) + '" fill="' + color + '" rx="2"/>';
     // Value label at end of bar
-    svg += '<text x="' + (padL + barW + 6) + '" y="' + (y + rowH/2 + 4) + '" font-size="12" fill="#0b1a33" font-weight="600">' + formatFn(val) + '</text>';
+    svg += '<text x="' + (padL + barW + 6) + '" y="' + (y + rowH/2 + 4) + '" font-size="11" fill="' + color + '" font-weight="600">' + formatFn(val) + '</text>';
   });
 
   svg += '</svg>';
@@ -1607,19 +1616,23 @@ function svgMonthProfitChart(data) {
     return '<div style="padding:40px;text-align:center;color:var(--ink-soft);font-style:italic;">No data yet.</div>';
   }
 
-  const W = 700, padL = 60, padR = 80, padT = 20, padB = 50;
-  const barW = Math.min(50, (W - padL - padR) / data.length - 8);
+  // Calculate margin % for each month
+  const withMargin = data.map(d => ({
+    ...d,
+    margin: d.revenue > 0 ? d.net / d.revenue : 0,
+  }));
+
+  const W = 700, padL = 50, padR = 20, padT = 20, padB = 50;
+  const barW = Math.min(50, (W - padL - padR) / withMargin.length - 8);
   const plotW = W - padL - padR;
   const plotH = 280;
   const H = padT + plotH + padB;
 
-  const maxVal = Math.max(...data.map(d => Math.abs(d.net)), 1);
-  // Include 0 in the range
-  const maxY = Math.max(...data.map(d => d.net), 0) * 1.15;
-  const minY = Math.min(...data.map(d => d.net), 0) * 1.15;
-  const range = maxY - minY || 1;
+  const maxY = Math.max(...withMargin.map(d => d.margin), 0.05) * 1.15;
+  const minY = Math.min(...withMargin.map(d => d.margin), 0) * 1.15;
+  const range = maxY - minY || 0.1;
 
-  const xStep = plotW / data.length;
+  const xStep = plotW / withMargin.length;
   const xPos = i => padL + i * xStep + xStep / 2;
   const yPos = v => padT + plotH - ((v - minY) / range) * plotH;
   const zeroY = yPos(0);
@@ -1632,31 +1645,35 @@ function svgMonthProfitChart(data) {
     const v = minY + range * (i / ticks);
     const y = yPos(v);
     svg += '<line x1="' + padL + '" y1="' + y + '" x2="' + (padL + plotW) + '" y2="' + y + '" stroke="#e6ebf3" stroke-width="1"/>';
-    svg += '<text x="' + (padL - 8) + '" y="' + (y + 4) + '" text-anchor="end" font-size="10" fill="#4a5878">' + fmt(v) + '</text>';
+    svg += '<text x="' + (padL - 6) + '" y="' + (y + 4) + '" text-anchor="end" font-size="10" fill="#4a5878">' + (v * 100).toFixed(0) + '%</text>';
+  }
+
+  // 10% threshold line
+  if (maxY >= 0.10 && minY < 0.10) {
+    const tenY = yPos(0.10);
+    svg += '<line x1="' + padL + '" y1="' + tenY + '" x2="' + (padL + plotW) + '" y2="' + tenY + '" stroke="#2d6a4f" stroke-width="1" stroke-dasharray="4,4" opacity="0.5"/>';
+    svg += '<text x="' + (padL + plotW + 4) + '" y="' + (tenY + 4) + '" font-size="9" fill="#2d6a4f">10%</text>';
   }
 
   // Zero line
   svg += '<line x1="' + padL + '" y1="' + zeroY + '" x2="' + (padL + plotW) + '" y2="' + zeroY + '" stroke="#0b1a33" stroke-width="1.5"/>';
 
   // Bars
-  data.forEach((d, i) => {
+  withMargin.forEach((d, i) => {
     const x = xPos(i) - barW / 2;
-    const margin = d.revenue > 0 ? d.net / d.revenue : 0;
     let color;
-    if (margin >= 0.10) color = "#2d6a4f"; // green - 10%+
-    else if (margin > 0) color = "#c8a04a"; // yellow/gold - 0.1% to 9.9%
-    else color = "#a83232"; // red - 0% or under
+    if (d.margin >= 0.10) color = "#2d6a4f";
+    else if (d.margin > 0) color = "#b8860b";
+    else color = "#a83232";
 
-    if (d.net >= 0) {
-      const barH = ((d.net) / range) * plotH;
+    if (d.margin >= 0) {
+      const barH = (d.margin / range) * plotH;
       svg += '<rect x="' + x + '" y="' + (zeroY - barH) + '" width="' + barW + '" height="' + barH + '" fill="' + color + '" rx="3"/>';
-      // Value label above bar
-      svg += '<text x="' + xPos(i) + '" y="' + (zeroY - barH - 6) + '" text-anchor="middle" font-size="10" font-weight="600" fill="' + color + '">' + fmt(d.net) + '</text>';
+      svg += '<text x="' + xPos(i) + '" y="' + (zeroY - barH - 6) + '" text-anchor="middle" font-size="10" font-weight="600" fill="' + color + '">' + fmtPct(d.margin) + '</text>';
     } else {
-      const barH = (Math.abs(d.net) / range) * plotH;
+      const barH = (Math.abs(d.margin) / range) * plotH;
       svg += '<rect x="' + x + '" y="' + zeroY + '" width="' + barW + '" height="' + barH + '" fill="' + color + '" rx="3"/>';
-      // Value label below bar
-      svg += '<text x="' + xPos(i) + '" y="' + (zeroY + barH + 14) + '" text-anchor="middle" font-size="10" font-weight="600" fill="' + color + '">' + fmt(d.net) + '</text>';
+      svg += '<text x="' + xPos(i) + '" y="' + (zeroY + barH + 14) + '" text-anchor="middle" font-size="10" font-weight="600" fill="' + color + '">' + fmtPct(d.margin) + '</text>';
     }
 
     // Month label
@@ -1702,24 +1719,29 @@ function renderInsights() {
     return;
   }
 
-  // Chart 1: Avg margin by feature
-  html += '<div class="card"><h2 class="section-h">Average Net Margin by Feature</h2>';
-  html += '<p style="color:var(--ink-soft);font-size:0.85rem;margin:0 0 16px;">Which features make you the most money, as a % of project price. Sorted highest to lowest.</p>';
-  html += svgBarChart(agg, "netMargin", v => fmtPct(v));
+  // Charts row: Avg margin by feature + Net profit by month (side by side)
+  const monthProfitAgg = aggregateByJobMonth(insightsJobs);
+  html += '<div class="charts-row">';
+
+  // Chart 1: Avg margin by feature (with color coding)
+  html += '<div class="card"><h2 class="section-h">Avg Net Margin by Feature</h2>';
+  html += '<p style="color:var(--ink-soft);font-size:0.82rem;margin:0 0 12px;">Which features make you the most money. Sorted highest to lowest.</p>';
+  html += svgBarChart(agg, "netMargin", v => fmtPct(v), { colorByMargin: true });
   html += '</div>';
 
-  // Chart 2: Profitability by Salesman
+  // Chart 2: Net Profit by Job Month
+  html += '<div class="card"><h2 class="section-h">Net Margin by Month</h2>';
+  html += '<p style="color:var(--ink-soft);font-size:0.82rem;margin:0 0 12px;">Net margin % by each job\'s primary month.</p>';
+  html += svgMonthProfitChart(monthProfitAgg);
+  html += '</div>';
+
+  html += '</div>';
+
+  // Chart 3: Profitability by Salesman
   const salesmanAgg = aggregateBySalesman(insightsJobs);
   html += '<div class="card"><h2 class="section-h">Profitability by Salesman</h2>';
   html += '<p style="color:var(--ink-soft);font-size:0.85rem;margin:0 0 16px;">Revenue, net profit, and margin breakdown per salesman.</p>';
   html += svgSalesmanChart(salesmanAgg);
-  html += '</div>';
-
-  // Chart 3: Net Profit by Job Month
-  const monthProfitAgg = aggregateByJobMonth(insightsJobs);
-  html += '<div class="card"><h2 class="section-h">Net Profit by Month</h2>';
-  html += '<p style="color:var(--ink-soft);font-size:0.85rem;margin:0 0 16px;">Total net profit grouped by each job\'s primary month (the month with more labor hours).</p>';
-  html += svgMonthProfitChart(monthProfitAgg);
   html += '</div>';
 
   container.innerHTML = html;
