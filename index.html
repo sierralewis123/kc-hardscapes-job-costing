@@ -368,12 +368,15 @@ const DEFAULT_FEATURES = [
   "Deck",
 ];
 
+const SALESMEN = ["Mark", "Noah"];
+
 function blankJob() {
   return {
     id: Math.random().toString(36).slice(2, 10),
     customer: "New Customer",
     jobName: "",
-    features: [], // array of feature strings
+    features: [],
+    salesman: "", // "Mark" or "Noah" // array of feature strings
     year: state.selectedYear, // which year bucket this job belongs to
     date: new Date().toISOString().slice(0, 10),
     startDate: "",
@@ -511,6 +514,7 @@ function jobToRow(j) {
     id: j.id,
     customer: j.customer || "",
     features: j.features || [],
+    salesman: j.salesman || "",
     year: j.year || String(new Date().getFullYear()),
     start_date: j.startDate || null,
     end_date: j.endDate || null,
@@ -539,6 +543,7 @@ function rowToJob(r) {
     customer: r.customer || "",
     jobName: "", // legacy
     features: r.features || [],
+    salesman: r.salesman || "",
     year: r.year || String(new Date().getFullYear()),
     date: r.start_date || "",
     startDate: r.start_date || "",
@@ -856,7 +861,7 @@ function render() {
       const npc = c.netProfit >= 0 ? "green" : "red";
       const grossClass = c.grossProfit >= 0 ? "green" : "red";
       return '<div class="job-grid" data-jobid="' + j.id + '">'
-        + '<div><div class="customer">' + (esc(j.customer) || "—") + '</div><div class="jobname">' + (j.features && j.features.length ? esc(j.features.join(" · ")) : "—") + '</div></div>'
+        + '<div><div class="customer">' + (esc(j.customer) || "—") + (j.salesman ? ' <span style="font-weight:400;color:var(--ink-soft);font-size:0.78rem;">(' + esc(j.salesman) + ')</span>' : '') + '</div><div class="jobname">' + (j.features && j.features.length ? esc(j.features.join(" · ")) : "—") + '</div></div>'
         + '<div class="cell-stacked">' + fmt(price) + '</div>'
         + '<div class="cell-stacked">' + fmt(c.totalMaterials) + '<span class="pct">' + fmtPct(matPct) + '</span></div>'
         + '<div class="cell-stacked">' + fmt(c.totalLabor) + '<span class="pct">' + fmtPct(laborPct) + '</span></div>'
@@ -954,6 +959,7 @@ function renderDetail(rate) {
         + '<div class="grid grid-2">'
           + field("customer", "Customer", job.customer, "text")
           + numField("projectPrice", "Project Price", job.projectPrice)
+          + '<div class="field"><div class="label-sm">Salesman</div><select data-jf="salesman"><option value="">— Select —</option>' + SALESMEN.map(s => '<option value="' + esc(s) + '"' + (job.salesman === s ? ' selected' : '') + '>' + esc(s) + '</option>').join('') + '</select></div>'
           + field("startDate", "Start Date", job.startDate, "date")
           + field("endDate", "End Date", job.endDate, "date")
         + '</div></div>'
@@ -1491,6 +1497,78 @@ function svgRevenueMix(data) {
   return svg;
 }
 
+function aggregateBySalesman(jobs) {
+  const map = {};
+  jobs.forEach(j => {
+    const s = j.salesman || "Unassigned";
+    const c = calcJob(j, 0);
+    if (!map[s]) map[s] = { salesman: s, revenue: 0, net: 0, gross: 0, count: 0 };
+    map[s].revenue += +j.projectPrice || 0;
+    map[s].net += c.netProfit;
+    map[s].gross += c.grossProfit;
+    map[s].count += 1;
+  });
+  return Object.values(map).map(d => ({
+    ...d,
+    netMargin: d.revenue > 0 ? d.net / d.revenue : 0,
+    grossMargin: d.revenue > 0 ? d.gross / d.revenue : 0,
+  }));
+}
+
+function svgSalesmanChart(data) {
+  if (!data || data.length === 0) {
+    return '<div style="padding:40px;text-align:center;color:var(--ink-soft);font-style:italic;">No data yet.</div>';
+  }
+  const sorted = [...data].sort((a, b) => b.revenue - a.revenue);
+  const colors = ["#1e3a6f", "#c8a04a", "#2d6a4f", "#a83232", "#6b4a8a"];
+
+  const W = 700, padL = 10, padR = 10, padT = 10, padB = 10;
+  const cardH = 120;
+  const H = padT + padB + sorted.length * cardH;
+
+  let svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;height:auto;font-family:Poppins,sans-serif;">';
+
+  sorted.forEach((d, i) => {
+    const y = padT + i * cardH;
+    const color = colors[i % colors.length];
+    const npc = d.netMargin >= 0 ? "#2d6a4f" : "#a83232";
+
+    // Background card
+    svg += '<rect x="' + padL + '" y="' + y + '" width="' + (W - padL - padR) + '" height="' + (cardH - 10) + '" fill="white" stroke="#c8d1e0" rx="4"/>';
+
+    // Color accent bar
+    svg += '<rect x="' + padL + '" y="' + y + '" width="6" height="' + (cardH - 10) + '" fill="' + color + '" rx="4"/>';
+
+    // Name
+    svg += '<text x="' + (padL + 20) + '" y="' + (y + 28) + '" font-size="18" font-weight="700" fill="#0b1a33">' + esc(d.salesman) + '</text>';
+    svg += '<text x="' + (padL + 20) + '" y="' + (y + 46) + '" font-size="11" fill="#4a5878">' + d.count + ' ' + (d.count === 1 ? 'job' : 'jobs') + '</text>';
+
+    // Revenue
+    svg += '<text x="220" y="' + (y + 28) + '" font-size="11" fill="#4a5878">Revenue</text>';
+    svg += '<text x="220" y="' + (y + 46) + '" font-size="16" font-weight="700" fill="#0b1a33">' + fmt(d.revenue) + '</text>';
+
+    // Gross
+    svg += '<text x="380" y="' + (y + 28) + '" font-size="11" fill="#4a5878">Gross</text>';
+    svg += '<text x="380" y="' + (y + 46) + '" font-size="16" font-weight="700" fill="#2d6a4f">' + fmt(d.gross) + ' <tspan font-size="11" font-weight="400">(' + fmtPct(d.grossMargin) + ')</tspan></text>';
+
+    // Net
+    svg += '<text x="540" y="' + (y + 28) + '" font-size="11" fill="#4a5878">Net Profit</text>';
+    svg += '<text x="540" y="' + (y + 46) + '" font-size="16" font-weight="700" fill="' + npc + '">' + fmt(d.net) + ' <tspan font-size="11" font-weight="400">(' + fmtPct(d.netMargin) + ')</tspan></text>';
+
+    // Revenue bar (visual)
+    const maxRev = Math.max(...sorted.map(x => x.revenue), 1);
+    const barW = (d.revenue / maxRev) * (W - padL - padR - 40);
+    svg += '<rect x="' + (padL + 20) + '" y="' + (y + 60) + '" width="' + barW + '" height="18" fill="' + color + '" rx="3" opacity="0.2"/>';
+    // Net portion of bar
+    const netBarW = d.net > 0 ? (d.net / maxRev) * (W - padL - padR - 40) : 0;
+    svg += '<rect x="' + (padL + 20) + '" y="' + (y + 60) + '" width="' + netBarW + '" height="18" fill="' + npc + '" rx="3" opacity="0.6"/>';
+    svg += '<text x="' + (padL + 25) + '" y="' + (y + 74) + '" font-size="10" fill="white" font-weight="600">Net: ' + fmtPct(d.netMargin) + '</text>';
+  });
+
+  svg += '</svg>';
+  return svg;
+}
+
 function renderInsights() {
   const container = document.getElementById("insightsContent");
 
@@ -1541,6 +1619,13 @@ function renderInsights() {
   html += '<div class="card"><h2 class="section-h">Margin Trend Over Time</h2>';
   html += '<p style="color:var(--ink-soft);font-size:0.85rem;margin:0 0 16px;">Net margin per feature, by job start month. Helps spot trends — are your patios getting more or less profitable?</p>';
   html += svgLineChart(trendMap);
+  html += '</div>';
+
+  // Chart 4: Profitability by Salesman
+  const salesmanAgg = aggregateBySalesman(insightsJobs);
+  html += '<div class="card"><h2 class="section-h">Profitability by Salesman</h2>';
+  html += '<p style="color:var(--ink-soft);font-size:0.85rem;margin:0 0 16px;">Revenue, net profit, and margin breakdown per salesman.</p>';
+  html += svgSalesmanChart(salesmanAgg);
   html += '</div>';
 
   container.innerHTML = html;
