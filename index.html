@@ -1587,7 +1587,6 @@ function renderInsights() {
   html += '</div>';
 
   const agg = aggregateByFeature(insightsJobs);
-  const trendMap = aggregateByFeatureByMonth(insightsJobs);
 
   if (insightsJobs.length === 0) {
     html += '<div class="card" style="text-align:center;padding:60px 20px;"><p class="serif" style="font-size:1.2rem;">No jobs for ' + (iy === "all" ? "any year" : iy) + '</p><p style="color:var(--ink-soft);">Add jobs with project features to see profitability insights.</p></div>';
@@ -1609,19 +1608,7 @@ function renderInsights() {
   html += svgBarChart(agg, "netMargin", v => fmtPct(v));
   html += '</div>';
 
-  // Chart 2: Revenue mix
-  html += '<div class="card"><h2 class="section-h">Revenue Mix by Feature</h2>';
-  html += '<p style="color:var(--ink-soft);font-size:0.85rem;margin:0 0 16px;">Where your revenue comes from. Jobs with multiple features count toward each feature\'s share.</p>';
-  html += svgRevenueMix(agg);
-  html += '</div>';
-
-  // Chart 3: Margin trend over time
-  html += '<div class="card"><h2 class="section-h">Margin Trend Over Time</h2>';
-  html += '<p style="color:var(--ink-soft);font-size:0.85rem;margin:0 0 16px;">Net margin per feature, by job start month. Helps spot trends — are your patios getting more or less profitable?</p>';
-  html += svgLineChart(trendMap);
-  html += '</div>';
-
-  // Chart 4: Profitability by Salesman
+  // Chart 2: Profitability by Salesman
   const salesmanAgg = aggregateBySalesman(insightsJobs);
   html += '<div class="card"><h2 class="section-h">Profitability by Salesman</h2>';
   html += '<p style="color:var(--ink-soft);font-size:0.85rem;margin:0 0 16px;">Revenue, net profit, and margin breakdown per salesman.</p>';
