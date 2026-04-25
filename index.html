@@ -1305,7 +1305,7 @@ function svgBarChart(data, valueKey, formatFn, options) {
     return '<div style="padding:40px;text-align:center;color:var(--ink-soft);font-style:italic;">No data yet — add features to your jobs to see this chart.</div>';
   }
   const sorted = [...data].sort((a, b) => b[valueKey] - a[valueKey]);
-  const W = 700, rowH = 36, padL = 140, padR = 100, padT = 10, padB = 10;
+  const W = 700, rowH = 44, padL = 155, padR = 110, padT = 10, padB = 10;
   const H = padT + padB + sorted.length * rowH;
   const maxVal = Math.max(...sorted.map(d => Math.abs(d[valueKey])), 0.0001);
   const barAreaW = W - padL - padR;
@@ -1318,19 +1318,18 @@ function svgBarChart(data, valueKey, formatFn, options) {
     const barW = (Math.abs(val) / maxVal) * barAreaW;
     let color;
     if (options.colorByMargin) {
-      // 3-tier: green >=10%, gold 0.1-9.9%, red <=0%
       color = val >= 0.10 ? "#2d6a4f" : (val > 0 ? "#b8860b" : "#a83232");
     } else {
       color = val >= 0 ? "#1e3a6f" : "#a83232";
     }
     // Label
-    svg += '<text x="' + (padL - 10) + '" y="' + (y + rowH/2 + 4) + '" text-anchor="end" font-size="12" fill="#0b1a33" font-weight="600">' + esc(d.feature) + '</text>';
+    svg += '<text x="' + (padL - 10) + '" y="' + (y + rowH/2 + 5) + '" text-anchor="end" font-size="15" fill="#0b1a33" font-weight="600">' + esc(d.feature) + '</text>';
     // Count
-    svg += '<text x="' + (padL - 10) + '" y="' + (y + rowH/2 + 17) + '" text-anchor="end" font-size="9" fill="#4a5878">' + d.count + ' ' + (d.count === 1 ? 'job' : 'jobs') + '</text>';
+    svg += '<text x="' + (padL - 10) + '" y="' + (y + rowH/2 + 20) + '" text-anchor="end" font-size="11" fill="#4a5878">' + d.count + ' ' + (d.count === 1 ? 'job' : 'jobs') + '</text>';
     // Bar
-    svg += '<rect x="' + padL + '" y="' + (y + 8) + '" width="' + barW + '" height="' + (rowH - 16) + '" fill="' + color + '" rx="2"/>';
+    svg += '<rect x="' + padL + '" y="' + (y + 10) + '" width="' + barW + '" height="' + (rowH - 20) + '" fill="' + color + '" rx="3"/>';
     // Value label at end of bar
-    svg += '<text x="' + (padL + barW + 6) + '" y="' + (y + rowH/2 + 4) + '" font-size="11" fill="' + color + '" font-weight="600">' + formatFn(val) + '</text>';
+    svg += '<text x="' + (padL + barW + 8) + '" y="' + (y + rowH/2 + 5) + '" font-size="14" fill="' + color + '" font-weight="600">' + formatFn(val) + '</text>';
   });
 
   svg += '</svg>';
@@ -1622,7 +1621,7 @@ function svgMonthProfitChart(data) {
     margin: d.revenue > 0 ? d.net / d.revenue : 0,
   }));
 
-  const W = 700, padL = 50, padR = 20, padT = 20, padB = 50;
+  const W = 700, padL = 50, padR = 20, padT = 20, padB = 60;
   const barW = Math.min(50, (W - padL - padR) / withMargin.length - 8);
   const plotW = W - padL - padR;
   const plotH = 280;
@@ -1645,14 +1644,14 @@ function svgMonthProfitChart(data) {
     const v = minY + range * (i / ticks);
     const y = yPos(v);
     svg += '<line x1="' + padL + '" y1="' + y + '" x2="' + (padL + plotW) + '" y2="' + y + '" stroke="#e6ebf3" stroke-width="1"/>';
-    svg += '<text x="' + (padL - 6) + '" y="' + (y + 4) + '" text-anchor="end" font-size="10" fill="#4a5878">' + (v * 100).toFixed(0) + '%</text>';
+    svg += '<text x="' + (padL - 6) + '" y="' + (y + 4) + '" text-anchor="end" font-size="12" fill="#4a5878">' + (v * 100).toFixed(0) + '%</text>';
   }
 
   // 10% threshold line
   if (maxY >= 0.10 && minY < 0.10) {
     const tenY = yPos(0.10);
     svg += '<line x1="' + padL + '" y1="' + tenY + '" x2="' + (padL + plotW) + '" y2="' + tenY + '" stroke="#2d6a4f" stroke-width="1" stroke-dasharray="4,4" opacity="0.5"/>';
-    svg += '<text x="' + (padL + plotW + 4) + '" y="' + (tenY + 4) + '" font-size="9" fill="#2d6a4f">10%</text>';
+    svg += '<text x="' + (padL + plotW + 4) + '" y="' + (tenY + 4) + '" font-size="11" fill="#2d6a4f">10%</text>';
   }
 
   // Zero line
@@ -1669,17 +1668,17 @@ function svgMonthProfitChart(data) {
     if (d.margin >= 0) {
       const barH = (d.margin / range) * plotH;
       svg += '<rect x="' + x + '" y="' + (zeroY - barH) + '" width="' + barW + '" height="' + barH + '" fill="' + color + '" rx="3"/>';
-      svg += '<text x="' + xPos(i) + '" y="' + (zeroY - barH - 6) + '" text-anchor="middle" font-size="10" font-weight="600" fill="' + color + '">' + fmtPct(d.margin) + '</text>';
+      svg += '<text x="' + xPos(i) + '" y="' + (zeroY - barH - 6) + '" text-anchor="middle" font-size="13" font-weight="600" fill="' + color + '">' + fmtPct(d.margin) + '</text>';
     } else {
       const barH = (Math.abs(d.margin) / range) * plotH;
       svg += '<rect x="' + x + '" y="' + zeroY + '" width="' + barW + '" height="' + barH + '" fill="' + color + '" rx="3"/>';
-      svg += '<text x="' + xPos(i) + '" y="' + (zeroY + barH + 14) + '" text-anchor="middle" font-size="10" font-weight="600" fill="' + color + '">' + fmtPct(d.margin) + '</text>';
+      svg += '<text x="' + xPos(i) + '" y="' + (zeroY + barH + 16) + '" text-anchor="middle" font-size="13" font-weight="600" fill="' + color + '">' + fmtPct(d.margin) + '</text>';
     }
 
     // Month label
-    svg += '<text x="' + xPos(i) + '" y="' + (padT + plotH + 18) + '" text-anchor="middle" font-size="11" fill="#0b1a33" font-weight="500">' + esc(d.month) + '</text>';
+    svg += '<text x="' + xPos(i) + '" y="' + (padT + plotH + 20) + '" text-anchor="middle" font-size="14" fill="#0b1a33" font-weight="500">' + esc(d.month) + '</text>';
     // Job count
-    svg += '<text x="' + xPos(i) + '" y="' + (padT + plotH + 32) + '" text-anchor="middle" font-size="9" fill="#4a5878">' + d.count + ' ' + (d.count === 1 ? 'job' : 'jobs') + '</text>';
+    svg += '<text x="' + xPos(i) + '" y="' + (padT + plotH + 36) + '" text-anchor="middle" font-size="11" fill="#4a5878">' + d.count + ' ' + (d.count === 1 ? 'job' : 'jobs') + '</text>';
   });
 
   svg += '</svg>';
