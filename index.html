@@ -169,12 +169,15 @@ footer { text-align: center; padding: 32px; color: var(--ink-soft); font-size: 0
         <div class="v" id="ohRate" style="font-size: 1rem;">Actual Monthly Allocation</div>
         <div id="syncStatus" style="font-size: 0.7rem; margin-top: 4px; color: var(--ink-soft); letter-spacing: 0.05em;">Local only</div>
       </div>
+      <div>
+        <button class="btn btn-ghost" id="btnEditLock" style="font-size: 0.8rem; padding: 6px 14px;" onclick="editUnlocked ? lockEditing() : unlockEditing()">🔒 Unlock Editing</button>
+      </div>
       </div>
     </div>
     <nav class="tabs">
       <button class="tab-btn active" data-tab="dashboard">Dashboard</button>
       <button class="tab-btn" data-tab="insights">Insights</button>
-      <button class="tab-btn" data-tab="overhead">Overhead</button>
+      <button class="tab-btn" data-tab="overhead" id="tabOverhead" style="display:none;">Overhead</button>
     </nav>
   </div>
 </header>
@@ -264,6 +267,27 @@ function initSupabase() {
     console.error("Supabase init failed:", e);
     return false;
   }
+}
+
+// ===== EDIT PROTECTION =====
+const EDIT_PASSWORD = "Leoman10!";
+let editUnlocked = false;
+
+function unlockEditing() {
+  const pwd = prompt("Enter password to unlock editing:");
+  if (pwd === EDIT_PASSWORD) {
+    editUnlocked = true;
+    showToast("Editing unlocked");
+    render();
+  } else if (pwd !== null) {
+    showToast("Incorrect password");
+  }
+}
+
+function lockEditing() {
+  editUnlocked = false;
+  state.tab = "dashboard";
+  render();
 }
 
 // ===== STATE & STORAGE =====
@@ -810,6 +834,24 @@ function render() {
 
   // Header overhead rate — static label now, no update needed
 
+  // Edit lock: show/hide controls
+  const lockBtn = document.getElementById("btnEditLock");
+  if (lockBtn) lockBtn.textContent = editUnlocked ? "🔓 Lock Editing" : "🔒 Unlock Editing";
+  const tabOH = document.getElementById("tabOverhead");
+  if (tabOH) tabOH.style.display = editUnlocked ? "" : "none";
+  // Hide edit buttons on dashboard
+  const btnNew = document.getElementById("btnNewJob");
+  if (btnNew) btnNew.style.display = editUnlocked ? "" : "none";
+  const btnCSV = document.getElementById("btnExportCSV");
+  if (btnCSV) btnCSV.style.display = editUnlocked ? "" : "none";
+  const btnPDF = document.getElementById("btnPublish");
+  if (btnPDF) btnPDF.style.display = editUnlocked ? "" : "none";
+
+  // If locked and trying to view detail or overhead, redirect to dashboard
+  if (!editUnlocked && (state.tab === "detail" || state.tab === "overhead")) {
+    state.tab = "dashboard";
+  }
+
   // Tab visibility
   ["dashboard","detail","insights","overhead"].forEach(t => {
     document.getElementById("tab-" + t).classList.toggle("hidden", state.tab !== t);
@@ -872,15 +914,18 @@ function render() {
         + '<div class="cell-stacked ' + grossClass + '">' + fmt(c.grossProfit) + '<span class="pct">' + fmtPct(c.grossMargin) + '</span></div>'
         + '<div class="cell-stacked">' + fmt(c.overheadAllocation) + '<span class="pct">' + fmtPct(ohPct) + '</span></div>'
         + '<div class="cell-stacked bold ' + npc + '">' + fmt(c.netProfit) + '<span class="pct">' + fmtPct(c.netMargin) + '</span></div>'
-        + '<div class="tr" style="color: var(--ink-soft);">›</div>'
+        + '<div class="tr" style="color: var(--ink-soft);">' + (editUnlocked ? '›' : '') + '</div>'
         + '</div>';
     }).join("");
     table.querySelectorAll(".job-grid[data-jobid]").forEach(row => {
       row.addEventListener("click", () => {
+        if (!editUnlocked) return; // read-only when locked
         state.selectedJobId = row.dataset.jobid;
         state.tab = "detail";
         render();
       });
+      // Change cursor to indicate clickability
+      row.style.cursor = editUnlocked ? "pointer" : "default";
     });
   }
 
