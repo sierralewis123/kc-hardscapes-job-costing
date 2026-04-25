@@ -1596,8 +1596,10 @@ function aggregateByJobMonth(jobs) {
     let monthLabel;
     if (primaryIdx >= 100) {
       const idx = primaryIdx - 100;
+      if (idx === 0) return; // Skip Dec (prev) of next year — doesn't belong in this year's chart
       monthLabel = (idx >= 0 && idx < MONTH_NAMES.length) ? MONTH_NAMES[idx] : "Unknown";
     } else {
+      if (primaryIdx === 0) return; // Skip Dec (prev) — belongs to prior year
       monthLabel = (primaryIdx >= 0 && primaryIdx < MONTH_NAMES.length) ? MONTH_NAMES[primaryIdx] : "Unknown";
     }
     // Use a sortable key for ordering
